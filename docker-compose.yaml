@@ -1,0 +1,46 @@
+services:
+  steps_bot:
+    build: .
+    container_name: steps_bot
+    restart: always
+    env_file:
+      - .env
+    command: python app/steps_bot/main.py
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+      - ./logs:/app/logs
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:15
+    container_name: pg_steps
+    restart: always
+    ports:
+      - "5423:5432"
+    env_file:
+      - .env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  django_admin:
+    build: .
+    container_name: django_admin
+    command: >
+      python app/admin/manage.py runserver 0.0.0.0:8001
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - .:/app
+      - ./staticfiles:/app/staticfiles
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:
