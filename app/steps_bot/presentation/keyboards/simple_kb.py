@@ -17,7 +17,7 @@ back_kb = InlineKeyboardMarkup(
     ]
 )
 
-phone_request_kb = ReplyKeyboardMarkup(
+phone_kb = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text='📱 Поделиться номером телефона', request_contact=True)]
     ],
@@ -26,11 +26,25 @@ phone_request_kb = ReplyKeyboardMarkup(
     input_field_placeholder='Пожалуйста, поделитесь своим номером телефона'
 )
 
+location_kb = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text='📍 Поделиться локацией', request_location=True)]
+    ],
+    resize_keyboard=True,
+    one_time_keyboard=True,
+    input_field_placeholder='Пожалуйста, поделитесь своей локацией'
+)
 
-analitic_reports = InlineKeyboardMarkup(
+walk_choice = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text='Ежеквартальный отчет MARKETBEAT', callback_data='reports')],  # TODO: будут дженерик клавы открываться на кварталы 
-        [InlineKeyboardButton(text='Обзоры по сегментам рынка', callback_data='reviews')],  # TODO: будут дженерик клавы открываться на (склады, инвестиции итд)
+        [InlineKeyboardButton(text='Гуляю с собакой', callback_data='dog_walk')],
+        [InlineKeyboardButton(text='Гуляю с коляской', callback_data='stroller_walk')],
+        [InlineKeyboardButton(text='Гуляю c собакой и коляской', callback_data='both_walk')],
         [InlineKeyboardButton(text='↩', callback_data='back')]
     ]
 )
+
+end_walk_kb = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text='Завершить прогулку', callback_data='end_walk')]
+])
+

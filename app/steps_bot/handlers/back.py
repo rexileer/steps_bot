@@ -8,9 +8,9 @@ router = Router()
 
 @router.callback_query(F.data == 'back')
 async def show_contacts(callback: CallbackQuery):
-    await callback.message.delete() 
+    await callback.message.delete()
     await callback.message.answer(
-        'Выберите опцию:',
+        'Описание возможностей бота ...:',
         reply_markup=main_menu_kb
     )
     await callback.answer()

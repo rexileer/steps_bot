@@ -3,7 +3,7 @@ import asyncio
 from contextlib import suppress
 from aiogram.types import Message, ReplyKeyboardRemove
 
-from app.steps_bot.presentation.keyboards.simple_kb import phone_request_kb, main_menu_kb
+from app.steps_bot.presentation.keyboards.simple_kb import phone_kb, main_menu_kb
 
 
 def is_valid_email(text: str) -> bool:
@@ -22,7 +22,7 @@ async def send_temp_warning(message: Message, text: str, delay: float = 3.0):
 async def registration_dialog(message: Message):
     # TODO: message answer подтягивать из бд, результат регистрации в коммитить в бд
     
-    await message.answer('Приветствуем, это steps_bot', reply_markup=phone_request_kb)
+    await message.answer('Приветствуем, это steps_bot', reply_markup=phone_kb)
     name = message.from_user.first_name
 
     while True:

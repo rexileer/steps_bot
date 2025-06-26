@@ -1,48 +1,38 @@
 from __future__ import annotations
-
-import asyncio
-import logging
+import asyncio, logging
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy import pool
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-from app.steps_bot.db.session import DATABASE_URL, Base
-from app.steps_bot.db import models
+from app.steps_bot.settings import config
+from app.steps_bot.db.models import Base
 
-config = context.config
-fileConfig(config.config_file_name)
-logger = logging.getLogger('alembic.env')
+fileConfig(context.config.config_file_name)
+logger = logging.getLogger("alembic.env")
 
 target_metadata = Base.metadata
 
 
-def include_object(object, name, type_, reflected, compare_to):
-    if type_ == "table" and (
-        name.startswith("auth_") or
-        name.startswith("django_") or
-        name.startswith("core_")
-    ):
+def db_url() -> str:
+    return (
+        f"postgresql+asyncpg://{config.POSTGRES_USER}:{config.POSTGRES_PASSWORD}"
+        f"@{config.POSTGRES_HOST}:{config.POSTGRES_PORT}/{config.POSTGRES_DB}"
+    )
+
+
+def include_object(obj, name, type_, reflected, compare_to):
+    if type_ == "table" and name.startswith(("auth_", "django_", "sessions")):
         return False
+
+    if type_ == "type" and name in {"mediatype", "userrole", "walkform"}:
+        return False
+
     return True
 
 
-def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode."""
-    url = DATABASE_URL
-    context.configure(
-        url=url,
-        target_metadata=target_metadata,
-        literal_binds=True,
-        dialect_opts={"paramstyle": "named"},
-        include_object=include_object,
-    )
-    with context.begin_transaction():
-        context.run_migrations()
-
-
 def do_run_migrations(connection):
-    """Run migrations in 'online' mode with async engine."""
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
@@ -55,12 +45,24 @@ def do_run_migrations(connection):
 
 
 async def run_migrations_online() -> None:
-    connectable = create_async_engine(DATABASE_URL, pool_pre_ping=True)
+    connectable: AsyncEngine = create_async_engine(db_url(), poolclass=pool.NullPool)
 
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
+    async with connectable.connect() as conn:
+        await conn.run_sync(do_run_migrations)
 
     await connectable.dispose()
+
+
+def run_migrations_offline() -> None:
+    context.configure(
+        url=db_url(),
+        target_metadata=target_metadata,
+        literal_binds=True,
+        dialect_opts={"paramstyle": "named"},
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
 
 if context.is_offline_mode():
     run_migrations_offline()
