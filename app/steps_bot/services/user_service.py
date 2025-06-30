@@ -1,53 +1,38 @@
-import datetime as dt
+from typing import Optional
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.steps_bot.db.models import User
+
+from app.steps_bot.db.repo import get_session
+from app.steps_bot.db.models.user import User
 
 
-async def create_or_update_user(
-    session: AsyncSession,
-    tg_id: int,
-    first_name: str = '',
-    last_name: str = '',
-    company: str = '',
-    phone: str = '',
+async def register_user(
+    telegram_id: int,
+    username: Optional[str],
+    phone: str,
+    email: str,
 ) -> User:
-    result = await session.execute(select(User).where(User.tg_id == tg_id))
-    user = result.scalar_one_or_none()
+    async with get_session() as session:
+        user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
 
-    now = dt.datetime.utcnow()
+        if user:
+            if phone and not user.phone:
+                user.phone = phone
+            if email and not user.email:
+                user.email = email
+        else:
+            user = User(
+                telegram_id=telegram_id,
+                username=username,
+                phone=phone,
+                email=email,
+            )
+            session.add(user)
 
-    if user:
-        if first_name:
-            user.first_name = first_name
-        if last_name:
-            user.last_name = last_name
-        if company:
-            user.company = company
-        if phone:
-            user.phone = phone
-        user.last_activity_at = now
-    else:
-        user = User(
-            tg_id=tg_id,
-            first_name=first_name,
-            last_name=last_name,
-            company=company,
-            phone=phone,
-            registered_at=now,
-            last_activity_at=now,
-        )
-        session.add(user)
-
-    return user
+        await session.flush()
+        return user
 
 
-async def get_user_by_tg_id(session: AsyncSession, tg_id: int) -> User | None:
-    result = await session.execute(select(User).where(User.tg_id == tg_id))
-    return result.scalar_one_or_none()
-
-
-async def get_admin_ids(session):
-    result = await session.execute(select(User.tg_id).where(User.is_admin == True))
-    return [row[0] for row in result.all()]
+async def get_user(telegram_id: int) -> Optional[User]:
+    async with get_session() as session:
+        return await session.scalar(select(User).where(User.telegram_id == telegram_id))

@@ -7,6 +7,7 @@ from app.steps_bot.handlers import start
 from app.steps_bot.handlers import back
 from app.steps_bot.handlers import walk
 from app.steps_bot.handlers import location
+from app.steps_bot.handlers import family
 
 bot = Bot(
     token=config.BOT_TOKEN,
@@ -18,3 +19,4 @@ dp.include_router(start.router)
 dp.include_router(back.router)
 dp.include_router(walk.router)
 dp.include_router(location.router)
+dp.include_router(family.router)

@@ -47,6 +47,7 @@ class TemperatureCoefficientAdmin(admin.ModelAdmin):
 class ContentAdmin(admin.ModelAdmin):
     list_display = ("slug", "media_type", "telegram_file_id", "media_url")
     list_editable = ("media_type", "telegram_file_id", "media_url")
+    list_filter = ("media_type",)
     search_fields = ("slug",)
 
 

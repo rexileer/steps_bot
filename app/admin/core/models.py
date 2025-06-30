@@ -106,8 +106,8 @@ class WalkFormCoefficient(models.Model):
     class Meta:
         db_table = "walk_form_coefficients"
         managed = False
-        verbose_name = _("Коэф. формы")
-        verbose_name_plural = _("Коэф. форм")
+        verbose_name = _("Форма прогулки")
+        verbose_name_plural = _("Формы прогулки")
 
     def __str__(self):
         return f"{self.get_walk_form_display()} = {self.coefficient}"
@@ -138,11 +138,22 @@ class TemperatureCoefficient(models.Model):
         )
 
 
+class MediaTypeChoices(models.TextChoices):
+    NONE = "NONE", "Нет"
+    PHOTO = "PHOTO", "Фото"
+    VIDEO = "VIDEO", "Видео"
+
+
 class Content(models.Model):
     id = models.AutoField(primary_key=True)
     slug = models.CharField(_("Ключ"), max_length=100, unique=True)
     text = models.TextField(_("Текст"))
-    media_type = models.CharField(_("Тип медиа"), max_length=10)
+    media_type = models.CharField(
+        _("Тип медиа"), 
+        max_length=10,
+        choices=MediaTypeChoices.choices,
+        default=MediaTypeChoices.NONE,
+    )
     telegram_file_id = models.CharField(
         _("Telegram file_id"), max_length=255, null=True, blank=True
     )
@@ -153,8 +164,8 @@ class Content(models.Model):
     class Meta:
         db_table = "contents"
         managed = False
-        verbose_name = _("Контент-блок")
-        verbose_name_plural = _("Контент-блоки")
+        verbose_name = _("Описание")
+        verbose_name_plural = _("Описания")
 
     def __str__(self):
         return self.slug

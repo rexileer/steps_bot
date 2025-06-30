@@ -9,6 +9,8 @@ from aiogram.fsm.context import FSMContext
 
 from app.steps_bot.presentation.keyboards.simple_kb import phone_kb, main_menu_kb
 from app.steps_bot.states.registration import Registration
+from app.steps_bot.services.user_service import register_user, get_user
+from app.steps_bot.services.captions_service import render
 
 router = Router()
 
@@ -19,7 +21,7 @@ def is_valid_email(text: str) -> bool:
 
 async def send_temp_warning(message: Message, text: str, delay: float = 3.0):
     """Автоудаление сообщений-предупреждений"""
-    
+
     warn = await message.answer(text)
 
     async def auto_delete():
@@ -32,9 +34,23 @@ async def send_temp_warning(message: Message, text: str, delay: float = 3.0):
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
-    # TODO: message.answer тянуть из бд
-    
-    await message.answer('Приветствуем, это steps_bot', reply_markup=phone_kb)
+    """Показываем главное меню сразу, если пользователь уже зарегистрирован."""
+
+    user = await get_user(message.from_user.id)
+
+    if user and user.phone and user.email:
+        await render(
+            message,
+            "main_menu",  # slug из БД
+            reply_markup=main_menu_kb,
+            name=message.from_user.first_name,
+            phone=user.phone,
+            email=user.email,
+        )
+        await state.clear()
+        return
+
+    await render(message, "start_welcome", reply_markup=phone_kb)  # slug из БД
     await state.set_state(Registration.waiting_for_phone)
 
 
@@ -52,7 +68,8 @@ async def warning_phone(message: Message):
 
 @router.message(Registration.waiting_for_email, F.text.func(is_valid_email))
 async def process_email(message: Message, state: FSMContext):
-    # TODO: message.answer тянуть из бд
+    """Message берется из БД"""
+        
     await state.update_data(email=message.text.strip())
     data = await state.get_data()
 
@@ -60,12 +77,20 @@ async def process_email(message: Message, state: FSMContext):
     phone = data.get('phone')
     email = data.get('email')
 
-    await message.answer(
-        f"Приветствуем в step_bot, {name}!\nВы успешно авторизовались!\n\n"
-        f"📧 Email: {email}\n"
-        f"📱 Телефон: {phone}\n\n"
-        f"Информация о возможностях бота ...",
-        reply_markup=main_menu_kb
+    await register_user(
+        telegram_id=message.from_user.id,
+        username=message.from_user.username,
+        phone=phone,
+        email=email,
+    )
+
+    await render(
+        message,
+        "main_menu",  # slug для БД
+        reply_markup=main_menu_kb,
+        name=name,
+        phone=phone,
+        email=email,
     )
     await state.clear()
 
