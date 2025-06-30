@@ -4,12 +4,12 @@ import asyncio
 from contextlib import suppress
 from aiogram import Router, F
 from aiogram.filters import CommandStart
-from aiogram.types import Message, ReplyKeyboardRemove
+from aiogram.types import Message, ReplyKeyboardRemove, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
-from app.steps_bot.presentation.keyboards.simple_kb import phone_kb, main_menu_kb
+from app.steps_bot.presentation.keyboards.simple_kb import phone_kb, main_menu_kb, accept_kb
 from app.steps_bot.states.registration import Registration
-from app.steps_bot.services.user_service import register_user, get_user
+from app.steps_bot.services.user_service import register_user, get_user, sync_username
 from app.steps_bot.services.captions_service import render
 
 router = Router()
@@ -36,6 +36,7 @@ async def send_temp_warning(message: Message, text: str, delay: float = 3.0):
 async def cmd_start(message: Message, state: FSMContext):
     """Показываем главное меню сразу, если пользователь уже зарегистрирован."""
 
+    await sync_username(message.from_user.id, message.from_user.username)
     user = await get_user(message.from_user.id)
 
     if user and user.phone and user.email:
@@ -50,8 +51,17 @@ async def cmd_start(message: Message, state: FSMContext):
         await state.clear()
         return
 
-    await render(message, "start_welcome", reply_markup=phone_kb)  # slug из БД
+    await render(message, "start_welcome", reply_markup=accept_kb)  # slug из БД
     await state.set_state(Registration.waiting_for_phone)
+
+
+@router.callback_query(F.data == "accept")
+async def accept_pd(cb: CallbackQuery, state: FSMContext):
+    await cb.message.delete()
+    await cb.message.answer("Пожалуйста, отправьте свой номер телефона:",
+                            reply_markup=phone_kb)
+    await state.set_state(Registration.waiting_for_phone)
+    await cb.answer()
 
 
 @router.message(Registration.waiting_for_phone, F.contact)

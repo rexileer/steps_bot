@@ -1,5 +1,4 @@
 from typing import Optional
-
 from sqlalchemy import select
 
 from app.steps_bot.db.repo import get_session
@@ -36,3 +35,19 @@ async def register_user(
 async def get_user(telegram_id: int) -> Optional[User]:
     async with get_session() as session:
         return await session.scalar(select(User).where(User.telegram_id == telegram_id))
+    
+
+async def sync_username(telegram_id: int, new_username: Optional[str]) -> None:
+    """
+    Обновить username, если пользователь уже есть в БД и ник изменился.
+    """
+    if not new_username:
+        return
+
+    async with get_session() as session:
+        user = await session.scalar(
+            select(User).where(User.telegram_id == telegram_id)
+        )
+        if user and user.username != new_username:
+            user.username = new_username
+            await session.flush()

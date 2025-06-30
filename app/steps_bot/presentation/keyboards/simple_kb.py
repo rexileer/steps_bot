@@ -50,3 +50,7 @@ no_family_kb = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text='↩', callback_data='back')]
 ])
 
+# Согласие на обработку персональных данных
+accept_kb = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text='Соглашаюсь', callback_data='accept')],
+])

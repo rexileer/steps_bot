@@ -2,6 +2,7 @@ from typing import List
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from app.steps_bot.db.models.user import User
 
+
 # Меню овнера семьи
 def build_owner_kb(members: List[User], me_tg_id: int) -> InlineKeyboardMarkup:
     rows = [[InlineKeyboardButton(text="Добавить участников", callback_data="family_invite")]]
@@ -25,6 +26,7 @@ def build_owner_kb(members: List[User], me_tg_id: int) -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
+
 # Меню принятия приглашения в семью
 def invite_response_kb(inv_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -35,6 +37,7 @@ def invite_response_kb(inv_id: int) -> InlineKeyboardMarkup:
             ]
         ]
     )
+
 
 # Меню обычного участника
 def build_member_kb(

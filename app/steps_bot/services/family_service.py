@@ -25,7 +25,9 @@ class FamilyService:
 
             family = await session.get(Family, user.family_id)
             members = await session.scalars(
-                select(User).where(User.family_id == user.family_id)
+                select(User)
+                .where(User.family_id == user.family_id)
+                .order_by(User.id)
             )
             return family, list(members)
 
@@ -75,6 +77,12 @@ class FamilyService:
 
             if invitee.family_id:
                 raise ValueError("Пользователь уже состоит в семье")
+            
+            count_members = await session.scalar(
+                select(func.count()).where(User.family_id == inviter.family_id)
+            )
+            if count_members >=5:
+                raise ValueError("В семье уже 5 участников")
 
             exists = await session.scalar(
                 select(FamilyInvitation).where(
@@ -117,6 +125,12 @@ class FamilyService:
                 raise ValueError("Это приглашение не для вас")
 
             if accept:
+                members_now = await session.scalar(
+                    select(func.count()).where(User.family_id == inv.family_id)
+                )
+                if members_now >= 5:
+                    raise ValueError("В семье уже 5 участников")
+                
                 inv.status = FamilyInviteStatus.ACCEPTED
                 invitee.family_id = inv.family_id
                 inv.responded_at = func.now()
@@ -240,7 +254,11 @@ class FamilyService:
             family = await session.get(Family, user.family_id)
 
             members = list(
-                await session.scalars(select(User).where(User.family_id == user.family_id))
+                await session.scalars(
+                    select(User)
+                    .where(User.family_id == user.family_id)
+                    .order_by(User.id)
+                )
             )
 
             total_steps   = sum(m.step_count for m in members)
