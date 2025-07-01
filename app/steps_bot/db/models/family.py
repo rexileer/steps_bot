@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import enum
 import datetime as dt
-
 from typing import List, Optional
+
 from sqlalchemy import (
     DateTime,
     Enum,
@@ -18,11 +18,15 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.steps_bot.db.models.base import Base
 
 
-class FamilyInviteStatus(enum.Enum):
+class FamilyInviteStatus(str, enum.Enum):
     PENDING = "pending"
     ACCEPTED = "accepted"
     DECLINED = "declined"
     CANCELED = "canceled"
+
+
+def enum_values(enum_cls):
+    return [member.value for member in enum_cls]
 
 
 class Family(Base):
@@ -55,9 +59,18 @@ class FamilyInvitation(Base):
     family_id: Mapped[int] = mapped_column(ForeignKey("families.id", ondelete="CASCADE"), nullable=False)
     inviter_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     invitee_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
     status: Mapped[FamilyInviteStatus] = mapped_column(
-        Enum(FamilyInviteStatus), default=FamilyInviteStatus.PENDING, index=True, nullable=False
+        Enum(
+            FamilyInviteStatus,
+            values_callable=enum_values,
+            name="familyinvitestatus",
+        ),
+        default=FamilyInviteStatus.PENDING,
+        index=True,
+        nullable=False,
     )
+
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

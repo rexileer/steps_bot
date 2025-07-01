@@ -8,6 +8,15 @@ from app.steps_bot.db.models.family import (
 from app.steps_bot.db.models.walk import WalkForm, WalkFormCoefficient
 from app.steps_bot.db.models.coefficients import TemperatureCoefficient
 from app.steps_bot.db.models.captions import MediaType, Content
+from app.steps_bot.db.models.faq import FAQ
+from app.steps_bot.db.models.catalog import (
+    CatalogCategory,
+    Product,
+    OrderStatus,
+    Order,
+    OrderItem,
+    UserAddress,
+)
 
 __all__ = [
     "Base",
@@ -20,5 +29,12 @@ __all__ = [
     "WalkFormCoefficient",
     "TemperatureCoefficient",
     "MediaType",
-    "Content"
+    "Content",
+    "FAQ",
+    "CatalogCategory",
+    "Product",
+    "OrderStatus",
+    "Order",
+    "OrderItem",
+    "UserAddress",
 ]

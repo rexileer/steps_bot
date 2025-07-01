@@ -54,3 +54,11 @@ no_family_kb = InlineKeyboardMarkup(inline_keyboard=[
 accept_kb = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text='Соглашаюсь', callback_data='accept')],
 ])
+
+
+balance_kb = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text='Потратить баллы', callback_data='catalog')],
+    [InlineKeyboardButton(text='История начислений и трат', callback_data='history')],
+    [InlineKeyboardButton(text='↩', callback_data='back')]
+    
+])

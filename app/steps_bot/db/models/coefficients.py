@@ -15,6 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.steps_bot.db.models.base import Base
 from app.steps_bot.db.models.walk import WalkForm
+from app.steps_bot.db.utils import enum_values
 
 
 class TemperatureCoefficient(Base):
@@ -25,7 +26,14 @@ class TemperatureCoefficient(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    walk_form: Mapped[WalkForm] = mapped_column(Enum(WalkForm), nullable=False)
+    walk_form: Mapped[WalkForm] = mapped_column(
+        Enum(
+            WalkForm,
+            values_callable=enum_values,
+            name="walkform",
+        ),
+        nullable=False,
+    )
     min_temp_c: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     max_temp_c: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     coefficient: Mapped[int] = mapped_column(SmallInteger, nullable=False)

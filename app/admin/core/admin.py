@@ -7,7 +7,13 @@ from core.models import (
     WalkFormCoefficient,
     TemperatureCoefficient,
     Content,
-    User
+    User,
+    FAQ,CatalogCategory,
+    Product,
+    OrderStatusChoices,
+    Order,
+    OrderItem,
+    UserAddress,
 )
 
 admin.site.unregister(Group)
@@ -78,3 +84,38 @@ class UserAdmin(admin.ModelAdmin):
             ),
         }),
     )
+
+
+@admin.register(FAQ)
+class FAQAdmin(admin.ModelAdmin):
+    list_display  = ("slug", "question", "media_type", "telegram_file_id", "media_url")
+    list_editable = ("media_type", "telegram_file_id", "media_url")
+    search_fields = ("slug", "question")
+
+
+@admin.register(CatalogCategory)
+class CatalogCategoryAdmin(admin.ModelAdmin):
+    list_display = ("id", "name")
+    search_fields = ("name",)
+
+
+@admin.register(Product)
+class ProductAdmin(admin.ModelAdmin):
+    list_display = ("id", "title", "category", "price", "is_active", "media_type")
+    list_filter = ("category", "is_active", "media_type")
+    search_fields = ("title",)
+
+
+class OrderItemInline(admin.TabularInline):
+    model = OrderItem
+    extra = 0
+    readonly_fields = ("product", "qty")
+    can_delete = False
+
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "status", "total_price", "created_at", "track_code")
+    list_filter = ("status",)
+    search_fields = ("id", "track_code", "user__telegram_id")
+    inlines = (OrderItemInline,)

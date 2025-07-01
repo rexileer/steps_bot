@@ -8,6 +8,9 @@ from app.steps_bot.handlers import back
 from app.steps_bot.handlers import walk
 from app.steps_bot.handlers import location
 from app.steps_bot.handlers import family
+from app.steps_bot.handlers import faq
+from app.steps_bot.handlers import catalog
+from app.steps_bot.handlers import balance
 
 bot = Bot(
     token=config.BOT_TOKEN,
@@ -20,3 +23,6 @@ dp.include_router(back.router)
 dp.include_router(walk.router)
 dp.include_router(location.router)
 dp.include_router(family.router)
+dp.include_router(faq.router)
+dp.include_router(catalog.router)
+dp.include_router(balance.router)
