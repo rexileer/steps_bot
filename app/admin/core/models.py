@@ -237,3 +237,17 @@ class UserAddress(models.Model):
 
     def __str__(self):
         return f"{self.city}, {self.street}"
+
+
+class BotSetting(models.Model):
+    key = models.CharField(_("Ключ"), max_length=100, primary_key=True)
+    value = models.TextField(_("Значение"))
+
+    class Meta:
+        db_table = "bot_settings"
+        managed = False
+        verbose_name = _("Ссылка на поддержку")
+        verbose_name_plural = _("Ссылка на поддержку")
+
+    def __str__(self):
+        return f"{self.key} = {self.value}"

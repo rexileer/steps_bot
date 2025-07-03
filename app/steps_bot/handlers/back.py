@@ -9,10 +9,11 @@ router = Router()
 
 @router.callback_query(F.data == 'back')
 async def show_contacts(callback: CallbackQuery):
+    kb = await main_menu_kb()
     await callback.message.delete()
     await render(
         callback.message,
         "main_menu",  # slug для БД
-        reply_markup=main_menu_kb,
+        reply_markup=kb,
     )
     await callback.answer()

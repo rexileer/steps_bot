@@ -5,9 +5,11 @@ services:
     restart: always
     env_file:
       - .env
-    command: python app/steps_bot/main.py
+    command: uvicorn app.steps_bot.main:app --host 0.0.0.0 --port 8080
     environment:
       - PYTHONPATH=/app
+    ports:
+      - "8080:8080"
     volumes:
       - .:/app
       - ./logs:/app/logs

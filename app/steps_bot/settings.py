@@ -3,6 +3,7 @@ from typing import Optional
 
 class Settings(BaseSettings):
     BOT_TOKEN: str
+    WEBHOOK_URL: str
     
     POSTGRES_HOST: Optional[str] = None
     POSTGRES_PORT: Optional[int] = None

@@ -14,6 +14,7 @@ from core.models import (
     Order,
     OrderItem,
     UserAddress,
+    BotSetting
 )
 
 admin.site.unregister(Group)
@@ -119,3 +120,9 @@ class OrderAdmin(admin.ModelAdmin):
     list_filter = ("status",)
     search_fields = ("id", "track_code", "user__telegram_id")
     inlines = (OrderItemInline,)
+
+
+@admin.register(BotSetting)
+class BotSettingAdmin(admin.ModelAdmin):
+    list_display = ("key", "value")
+    search_fields = ("key",)

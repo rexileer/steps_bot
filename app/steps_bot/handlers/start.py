@@ -7,7 +7,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message, ReplyKeyboardRemove, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
-from app.steps_bot.presentation.keyboards.simple_kb import phone_kb, main_menu_kb, accept_kb
+from app.steps_bot.presentation.keyboards.simple_kb import phone_kb, accept_kb, main_menu_kb
 from app.steps_bot.states.registration import Registration
 from app.steps_bot.services.user_service import register_user, get_user, sync_username
 from app.steps_bot.services.captions_service import render
@@ -38,12 +38,13 @@ async def cmd_start(message: Message, state: FSMContext):
 
     await sync_username(message.from_user.id, message.from_user.username)
     user = await get_user(message.from_user.id)
+    kb = await main_menu_kb()
 
     if user and user.phone and user.email:
         await render(
             message,
             "main_menu",  # slug из БД
-            reply_markup=main_menu_kb,
+            reply_markup=kb,
             name=message.from_user.first_name,
             phone=user.phone,
             email=user.email,

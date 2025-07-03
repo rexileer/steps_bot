@@ -1,16 +1,27 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 
+from app.steps_bot.services.settings_service import SettingsService
+
+
 # Главное меню
-main_menu_kb = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(text='Начать прогулку', callback_data='walk')],
-        [InlineKeyboardButton(text='Ваша семья', callback_data='family')],
-        [InlineKeyboardButton(text='Баланс', callback_data='balance')],
-        [InlineKeyboardButton(text='Каталог', callback_data='catalog')],
-        [InlineKeyboardButton(text='FAQ', callback_data='faq')],
-        [InlineKeyboardButton(text='Техническая поддержка', url='https://t.me/bottecp')]
-    ]
-)
+async def main_menu_kb() -> InlineKeyboardMarkup:
+    support_url = await SettingsService.get_setting('поддержка')
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text='Начать прогулку', callback_data='walk')],
+            [InlineKeyboardButton(text='Ваша семья', callback_data='family')],
+            [InlineKeyboardButton(text='Баланс', callback_data='balance')],
+            [InlineKeyboardButton(text='Каталог', callback_data='catalog')],
+            [InlineKeyboardButton(text='FAQ', callback_data='faq')],
+            [InlineKeyboardButton(
+                text='Техническая поддержка',
+                url=support_url if support_url else 'https://t.me/bottecp'
+            )]
+        ]
+    )
+    return keyboard
+
 
 # Назад
 back_kb = InlineKeyboardMarkup(
