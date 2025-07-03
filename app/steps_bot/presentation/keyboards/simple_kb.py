@@ -1,7 +1,7 @@
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, WebAppInfo
 
 from app.steps_bot.services.settings_service import SettingsService
-
+from app.steps_bot.settings import config
 
 # Главное меню
 async def main_menu_kb() -> InlineKeyboardMarkup:
@@ -41,14 +41,22 @@ phone_kb = ReplyKeyboardMarkup(
 )
 
 # Меню с выбором вида прогулки
-walk_choice = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(text='Гуляю с собакой', callback_data='dog_walk')],
-        [InlineKeyboardButton(text='Гуляю с коляской', callback_data='stroller_walk')],
-        [InlineKeyboardButton(text='Гуляю c собакой и коляской', callback_data='both_walk')],
-        [InlineKeyboardButton(text='↩', callback_data='back')]
-    ]
-)
+walk_choice = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(
+        text='Гуляю с собакой',
+        web_app=WebAppInfo(url=f'{config.WEBAPP_URL}/map?walk_type=dog')
+    )],
+    [InlineKeyboardButton(
+        text='Гуляю с коляской',
+        web_app=WebAppInfo(url=f'{config.WEBAPP_URL}/map?walk_type=stroller')
+    )],
+    [InlineKeyboardButton(
+        text='Гуляю с собакой и коляской',
+        web_app=WebAppInfo(url=f'{config.WEBAPP_URL}/map?walk_type=both')
+    )],
+    [InlineKeyboardButton(text='↩', callback_data='back')]
+])
+
 
 # Завершить прогулку
 end_walk_kb = InlineKeyboardMarkup(inline_keyboard=[
