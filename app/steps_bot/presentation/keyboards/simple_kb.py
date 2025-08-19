@@ -43,16 +43,16 @@ phone_kb = ReplyKeyboardMarkup(
 # Меню с выбором вида прогулки
 walk_choice = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(
-        text='Гуляю с собакой',
-        web_app=WebAppInfo(url=f'{config.WEBAPP_URL}/map?walk_type=dog')
+        text='Гуляю с собакой', 
+        callback_data='walk_dog'
     )],
     [InlineKeyboardButton(
         text='Гуляю с коляской',
-        web_app=WebAppInfo(url=f'{config.WEBAPP_URL}/map?walk_type=stroller')
+        callback_data='walk_roller'
     )],
     [InlineKeyboardButton(
         text='Гуляю с собакой и коляской',
-        web_app=WebAppInfo(url=f'{config.WEBAPP_URL}/map?walk_type=both')
+        callback_data='walk_rolldog'
     )],
     [InlineKeyboardButton(text='↩', callback_data='back')]
 ])

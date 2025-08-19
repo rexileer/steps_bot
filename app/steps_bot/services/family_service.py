@@ -248,11 +248,15 @@ class FamilyService:
     async def get_family_stats(telegram_id: int) -> tuple[Family | None, list[User], int, int, int, int]:
         async with get_session() as session:
             user = await session.scalar(select(User).where(User.telegram_id == telegram_id))
-            if not user or not user.family_id:
+            if not user:
                 return None, [], 0, 0, 0, 0
 
-            family = await session.get(Family, user.family_id)
+            if not user.family_id:
+                my_steps = user.step_count or 0
+                my_balance = user.balance or 0
+                return None, [user], my_steps, my_balance, my_steps, my_balance
 
+            family = await session.get(Family, user.family_id)
             members = list(
                 await session.scalars(
                     select(User)
@@ -261,14 +265,14 @@ class FamilyService:
                 )
             )
 
-            total_steps   = sum(m.step_count for m in members)
-            total_balance = sum(m.balance     for m in members)
+            total_steps   = sum(m.step_count or 0 for m in members)
+            total_balance = sum(m.balance     or 0 for m in members)
 
             return (
                 family,
                 members,
-                user.step_count,
-                user.balance,
+                user.step_count or 0,
+                user.balance or 0,
                 total_steps,
                 total_balance,
             )

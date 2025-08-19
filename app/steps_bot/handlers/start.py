@@ -94,11 +94,13 @@ async def process_email(message: Message, state: FSMContext):
         phone=phone,
         email=email,
     )
-
+    
+    kb = await main_menu_kb()
+    
     await render(
         message,
         "main_menu",  # slug для БД
-        reply_markup=main_menu_kb,
+        reply_markup=kb,
         name=name,
         phone=phone,
         email=email,
