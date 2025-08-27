@@ -81,3 +81,16 @@ balance_kb = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text='↩', callback_data='back')]
     
 ])
+
+
+walk_back_kb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text='↩', callback_data='walk_back')]
+    ]
+)
+
+family_cancel_kb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text="Отмена", callback_data="family_cancel_create")]
+    ]
+)

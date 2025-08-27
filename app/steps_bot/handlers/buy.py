@@ -1,10 +1,21 @@
 from html import escape
 
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import InlineKeyboardMarkup
+from typing import Any
 
+from app.steps_bot.presentation.keyboards.cdek_kb import pvz_list_kb
+from app.steps_bot.services.buy_service import (
+    finalize_successful_order,
+    format_order_message,
+    load_product_summary,
+    submit_order_to_cdek,
+)
+from app.steps_bot.services.cdek_client import cdek_client
+from app.steps_bot.services.cdek_errors import CDEKAuthError, CDEKApiError
 from app.steps_bot.services.validators import (
     normalize_phone,
     validate_address,
@@ -13,16 +24,7 @@ from app.steps_bot.services.validators import (
     validate_phone,
     validate_pvz_code,
 )
-from app.steps_bot.states.order import OrderStates, OrderInput
-from app.steps_bot.services.cdek_client import cdek_client
-from app.steps_bot.presentation.keyboards.cdek_kb import pvz_list_kb
-from app.steps_bot.services.cdek_errors import CDEKAuthError, CDEKApiError
-from app.steps_bot.services.buy_service import (
-    submit_order_to_cdek,
-    load_product_summary,
-    finalize_successful_order,
-    format_order_message,
-)
+from app.steps_bot.states.order import OrderInput, OrderStates
 
 router = Router()
 
@@ -38,6 +40,43 @@ def delivery_type_kb() -> InlineKeyboardBuilder:
     return kb
 
 
+def _extract_return_cb(markup: InlineKeyboardMarkup | None) -> str:
+    """
+    Извлекает колбэк кнопки «назад к товарам» из предыдущей клавиатуры.
+    Ищет кнопку с callback_data, начинающимся на 'cat:'.
+    Если не найдено — возвращает 'catalog_root'.
+    """
+    if not markup or not getattr(markup, "inline_keyboard", None):
+        return "catalog_root"
+    for row in markup.inline_keyboard:
+        for btn in row:
+            data = getattr(btn, "callback_data", None)
+            if isinstance(data, str) and data.startswith("cat:"):
+                return data
+    return "catalog_root"
+
+
+def delivery_type_kb(return_cb: str | None = None) -> InlineKeyboardBuilder:
+    """
+    Клавиатура выбора типа доставки: только ПВЗ + назад к товарам.
+    """
+    kb = InlineKeyboardBuilder()
+    kb.button(text="ПВЗ СДЭК", callback_data="order:delivery:pvz")
+    kb.button(text="↩", callback_data=return_cb or "catalog_root")
+    kb.adjust(1, 1)
+    return kb
+
+
+def back_to_delivery_kb() -> InlineKeyboardBuilder:
+    """
+    Возвращает клавиатуру с кнопкой возврата к выбору типа доставки.
+    """
+    kb = InlineKeyboardBuilder()
+    kb.button(text="↩", callback_data="order:back")
+    kb.adjust(1)
+    return kb
+
+
 def confirm_kb() -> InlineKeyboardBuilder:
     """
     Возвращает клавиатуру подтверждения заказа.
@@ -45,7 +84,8 @@ def confirm_kb() -> InlineKeyboardBuilder:
     kb = InlineKeyboardBuilder()
     kb.button(text="Подтвердить", callback_data="order:confirm")
     kb.button(text="Отменить", callback_data="order:cancel")
-    kb.adjust(2)
+    kb.button(text="↩", callback_data="order:back")
+    kb.adjust(2, 1)
     return kb
 
 
@@ -60,6 +100,35 @@ async def on_buy_click(callback: CallbackQuery, state: FSMContext) -> None:
     except Exception:
         await callback.answer("Ошибка данных товара", show_alert=True)
         return
+
+    return_cb = _extract_return_cb(callback.message.reply_markup)
+
+    await state.set_state(OrderStates.choosing_delivery_type)
+    await callback.message.edit_text(
+        "Выберите тип доставки:",
+        reply_markup=delivery_type_kb(return_cb).as_markup(),
+    )
+    await callback.answer()
+
+
+def _extract_product_id(data: dict[str, Any]) -> int | None:
+    """
+    Достаёт product_id из состояния и валидирует тип.
+    Возвращает None, если идентификатор отсутствует.
+    """
+    value = data.get("product_id")
+    return value if isinstance(value, int) else None
+
+@router.callback_query(F.data == "order:back")
+async def on_back_to_delivery(callback: CallbackQuery, state: FSMContext) -> None:
+    """
+    Возвращает к выбору типа доставки, сохраняя выбранный товар.
+    """
+    data = await state.get_data()
+    product_id = int(data.get("product_id")) if data and data.get("product_id") else None
+    await state.clear()
+    if product_id is not None:
+        await state.update_data(product_id=product_id)
     await state.set_state(OrderStates.choosing_delivery_type)
     await callback.message.edit_text(
         "Выберите тип доставки:",
@@ -70,16 +139,18 @@ async def on_buy_click(callback: CallbackQuery, state: FSMContext) -> None:
 
 @router.callback_query(
     OrderStates.choosing_delivery_type,
-    F.data.in_({"order:delivery:pvz", "order:delivery:courier"}),
+    F.data == "order:delivery:pvz",
 )
 async def on_delivery_type(callback: CallbackQuery, state: FSMContext) -> None:
     """
-    Сохраняет тип доставки и запрашивает город.
+    Сохраняет тип доставки (ПВЗ) и запрашивает город.
     """
-    delivery_type = "pvz" if callback.data.endswith("pvz") else "courier"
-    await state.update_data(delivery_type=delivery_type)
+    await state.update_data(delivery_type="pvz")
     await state.set_state(OrderStates.entering_city)
-    await callback.message.edit_text("Укажите город получателя (например: Москва):")
+    await callback.message.edit_text(
+        "Укажите город получателя (например: Москва):",
+        reply_markup=back_to_delivery_kb().as_markup(),
+    )
     await callback.answer()
 
 
@@ -90,7 +161,7 @@ async def on_city_entered(message: Message, state: FSMContext) -> None:
     """
     city = message.text.strip()
     if not validate_city(city):
-        await message.answer("Город указан некорректно. Повторите ввод.")
+        await message.answer("Город указан некорректно. Повторите ввод.", reply_markup=back_to_delivery_kb().as_markup())
         return
 
     await state.update_data(city=city)
@@ -100,14 +171,14 @@ async def on_city_entered(message: Message, state: FSMContext) -> None:
         try:
             city_code = await cdek_client.find_city_code(city)
         except CDEKAuthError:
-            await message.answer("Не удалось авторизоваться в СДЭК. Проверь настройки интеграции.")
+            await message.answer("Не удалось авторизоваться в СДЭК. Проверь настройки интеграции.", reply_markup=back_to_delivery_kb().as_markup())
             return
         except CDEKApiError as e:
-            await message.answer(f"Сервис СДЭК недоступен: {escape(str(e))}")
+            await message.answer(f"Сервис СДЭК недоступен: {escape(str(e))}", reply_markup=back_to_delivery_kb().as_markup())
             return
 
         if not city_code:
-            await message.answer("Город не найден в справочнике СДЭК. Уточните название.")
+            await message.answer("Город не найден в справочнике СДЭК. Уточните название.", reply_markup=back_to_delivery_kb().as_markup())
             return
 
         await state.update_data(city_code=city_code, pvz_page=0)
@@ -115,24 +186,29 @@ async def on_city_entered(message: Message, state: FSMContext) -> None:
         try:
             items = await cdek_client.list_pvz(city_code=city_code, page=0, size=10)
         except CDEKAuthError:
-            await message.answer("Не удалось авторизоваться в СДЭК. Проверь настройки интеграции.")
+            await message.answer("Не удалось авторизоваться в СДЭК. Проверь настройки интеграции.", reply_markup=back_to_delivery_kb().as_markup())
             return
         except CDEKApiError as e:
-            await message.answer(f"Не удалось получить список ПВЗ: {escape(str(e))}")
+            await message.answer(f"Не удалось получить список ПВЗ: {escape(str(e))}", reply_markup=back_to_delivery_kb().as_markup())
             return
 
         if not items:
-            await message.answer("В городе нет доступных ПВЗ. Выберите курьерскую доставку.")
+            await message.answer("В городе нет доступных ПВЗ. Выберите курьерскую доставку.", reply_markup=back_to_delivery_kb().as_markup())
             return
 
+        kb = pvz_list_kb(items, page=0, city_code=city_code)
+        kb.button(text="↩", callback_data="order:back")
         await message.answer(
             "Выберите пункт выдачи:",
-            reply_markup=pvz_list_kb(items, page=0, city_code=city_code).as_markup(),
+            reply_markup=kb.as_markup(),
         )
         await state.set_state(OrderStates.entering_pvz_or_address)
     else:
         await state.set_state(OrderStates.entering_pvz_or_address)
-        await message.answer("Укажите адрес для курьерской доставки:")
+        await message.answer(
+            "Укажите адрес для курьерской доставки:",
+            reply_markup=back_to_delivery_kb().as_markup(),
+        )
 
 
 @router.callback_query(F.data.startswith("pvz_page:"))
@@ -157,17 +233,18 @@ async def on_pvz_page(callback: CallbackQuery, state: FSMContext) -> None:
         await callback.answer(escape(str(e)), show_alert=True)
         return
 
+    kb = pvz_list_kb(items, page=page_i, city_code=city_code_i)
+    kb.button(text="↩", callback_data="order:back")
+
     await state.update_data(pvz_page=page_i, city_code=city_code_i)
-    await callback.message.edit_reply_markup(
-        reply_markup=pvz_list_kb(items, page=page_i, city_code=city_code_i).as_markup()
-    )
+    await callback.message.edit_reply_markup(reply_markup=kb.as_markup())
     await callback.answer()
 
 
 @router.callback_query(F.data.startswith("pvz:"))
 async def on_pvz_choose(callback: CallbackQuery, state: FSMContext) -> None:
     """
-    Сохраняет выбранный ПВЗ и переводит к вводу ФИО вне зависимости от состояния.
+    Сохраняет выбранный ПВЗ и переводит к вводу ФИО.
     """
     _, code = callback.data.split(":")
     if not validate_pvz_code(code):
@@ -181,7 +258,10 @@ async def on_pvz_choose(callback: CallbackQuery, state: FSMContext) -> None:
 
     await state.update_data(pvz_code=code, address=None)
     await state.set_state(OrderStates.entering_full_name)
-    await callback.message.edit_text("Укажите ФИО получателя полностью:")
+    await callback.message.edit_text(
+        "Укажите ФИО получателя полностью:",
+        reply_markup=back_to_delivery_kb().as_markup(),
+    )
     await callback.answer()
 
 
@@ -195,11 +275,14 @@ async def on_address_for_courier(message: Message, state: FSMContext) -> None:
         return
     text = message.text.strip()
     if not validate_address(text):
-        await message.answer("Адрес слишком короткий. Укажите точнее.")
+        await message.answer("Адрес слишком короткий. Укажите точнее.", reply_markup=back_to_delivery_kb().as_markup())
         return
     await state.update_data(address=text, pvz_code=None)
     await state.set_state(OrderStates.entering_full_name)
-    await message.answer("Укажите ФИО получателя полностью:")
+    await message.answer(
+        "Укажите ФИО получателя полностью:",
+        reply_markup=back_to_delivery_kb().as_markup(),
+    )
 
 
 @router.message(OrderStates.entering_full_name, F.text.len() > 0)
@@ -209,11 +292,14 @@ async def on_full_name(message: Message, state: FSMContext) -> None:
     """
     full_name = message.text.strip()
     if not validate_full_name(full_name):
-        await message.answer("ФИО некорректно. Укажите полностью, минимум 3 символа.")
+        await message.answer("ФИО некорректно. Укажите полностью, минимум 3 символа.", reply_markup=back_to_delivery_kb().as_markup())
         return
     await state.update_data(full_name=full_name)
     await state.set_state(OrderStates.entering_phone)
-    await message.answer("Укажите телефон в международном формате (например: +79991234567):")
+    await message.answer(
+        "Укажите телефон в международном формате (например: +79991234567):",
+        reply_markup=back_to_delivery_kb().as_markup(),
+    )
 
 
 @router.message(OrderStates.entering_phone, F.text.len() > 0)
@@ -223,15 +309,25 @@ async def on_phone(message: Message, state: FSMContext) -> None:
     """
     phone = normalize_phone(message.text)
     if not validate_phone(phone):
-        await message.answer("Телефон некорректен. Формат: +79991234567.")
+        await message.answer(
+            "Телефон некорректен. Формат: +79991234567.",
+            reply_markup=back_to_delivery_kb().as_markup(),
+        )
         return
+
     await state.update_data(phone=phone)
     data = await state.get_data()
 
-    product = await load_product_summary(int(data.get("product_id")))
-    if not product:
-        await message.answer("Товар недоступен или уже куплен.")
+    product_id = _extract_product_id(data)
+    if product_id is None:
         await state.clear()
+        await message.answer("Сессия устарела, начните оформление заново.")
+        return
+
+    product = await load_product_summary(product_id)
+    if not product:
+        await state.clear()
+        await message.answer("Товар недоступен или уже куплен.")
         return
 
     summary = [
@@ -265,14 +361,17 @@ async def on_cancel(callback: CallbackQuery, state: FSMContext) -> None:
     Отменяет оформление заказа и сбрасывает состояние.
     """
     await state.clear()
-    await callback.message.edit_text("Оформление заказа отменено.")
+    await callback.message.edit_text(
+        "Оформление заказа отменено.",
+        reply_markup=back_to_delivery_kb().as_markup(),
+    )
     await callback.answer()
 
 
 @router.callback_query(F.data == "order:confirm")
 async def on_confirm(callback: CallbackQuery, state: FSMContext) -> None:
     """
-    Отправляет заказ в СДЭК и завершает сбор данных.
+    Отправляет заказ в СДЭК и завершает сбор данных, показывая кнопку возврата.
     """
     data = await state.get_data()
     if not data:
@@ -322,8 +421,12 @@ async def on_confirm(callback: CallbackQuery, state: FSMContext) -> None:
         await callback.answer()
         return
 
-    await state.clear()
     dest = data.get("pvz_code") if order.delivery_type == "pvz" else (data.get("address") or "")
     text = format_order_message(info_dict, order.delivery_type, dest)
-    await callback.message.edit_text(text)
+
+    await state.clear()
+    await callback.message.edit_text(
+        text,
+        reply_markup=back_to_delivery_kb().as_markup(),
+    )
     await callback.answer()

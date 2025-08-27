@@ -157,3 +157,4 @@ def promo_groups_kb(groups: List[PromoGroup]) -> InlineKeyboardMarkup:
     ]
     rows.append([InlineKeyboardButton(text="↩", callback_data="catalog_root")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+

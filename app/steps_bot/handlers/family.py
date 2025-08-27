@@ -5,7 +5,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 
-from app.steps_bot.presentation.keyboards.simple_kb import no_family_kb
+from app.steps_bot.presentation.keyboards.simple_kb import no_family_kb, family_cancel_kb
 
 from app.steps_bot.presentation.keyboards.generic_kb import build_owner_kb, invite_response_kb, build_member_kb
 from app.steps_bot.services.family_service import FamilyService
@@ -79,9 +79,23 @@ async def menu_family(callback: CallbackQuery):
 
 @router.callback_query(F.data == "create_family")
 async def ask_family_name(callback: CallbackQuery, state: FSMContext):
-    await callback.message.edit_text("Введите название семьи:")
+    """
+    Запрашивает название семьи и показывает кнопку отмены.
+    """
+    await callback.message.edit_text("Введите название семьи:", reply_markup=family_cancel_kb)
     await state.set_state(FamilyCreation.waiting_for_name)
     await callback.answer()
+    
+    
+@router.callback_query(F.data == "family_cancel_create", FamilyCreation.waiting_for_name)
+async def cancel_family_creation(callback: CallbackQuery, state: FSMContext):
+    """
+    Отменяет создание семьи и возвращает меню семьи.
+    """
+    await state.clear()
+    await callback.message.delete()
+    await _show_family_menu(callback.message, callback.from_user.id)
+    await callback.answer("Отменено")
 
 
 @router.message(FamilyCreation.waiting_for_name)

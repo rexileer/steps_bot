@@ -1,12 +1,20 @@
+import contextlib
 import logging
 import time
 
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery, Message
 
+from app.steps_bot.db.models.walk import WalkForm
+from app.steps_bot.presentation.keyboards.simple_kb import (
+    end_walk_kb,
+    walk_back_kb,
+    walk_choice,
+)
+from app.steps_bot.services.coefficients_service import get_total_multiplier
+from app.steps_bot.services.weather_service import get_current_temp_c
 from app.steps_bot.states.walk import WalkStates
-from app.steps_bot.presentation.keyboards.simple_kb import end_walk_kb
 from app.steps_bot.storage.user_memory import (
     user_coords,
     user_steps,
@@ -18,9 +26,6 @@ from app.steps_bot.storage.user_memory import (
     user_temp_c,
     user_temp_updated_at,
 )
-from app.steps_bot.db.models.walk import WalkForm
-from app.steps_bot.services.coefficients_service import get_total_multiplier
-from app.steps_bot.services.weather_service import get_current_temp_c
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -34,14 +39,26 @@ async def ask_for_stroller_walk_location(
     state: FSMContext,
 ) -> None:
     """
-    Нажатие «Гуляю с коляской». Просим отправить лайв-локацию.
+    Запускает прогулку с коляской и просит отправить лайв-локацию. Показывает кнопку возврата.
     """
     await callback.message.delete()
     await callback.message.answer(
-        "👶 Чтобы начать прогулку с коляской, открой меню вложений (📎) и "
-        "отправь лайв-локацию."
+        "👶 Чтобы начать прогулку с коляской, открой меню вложений (📎) и отправь лайв-локацию.",
+        reply_markup=walk_back_kb,
     )
     await state.set_state(WalkStates.waiting_for_roller_walk_location)
+    await callback.answer()
+
+
+@router.callback_query(WalkStates.waiting_for_roller_walk_location, F.data == "walk_back")
+async def cancel_stroller_walk_location(callback: CallbackQuery, state: FSMContext) -> None:
+    """
+    Отменяет ожидание локации и возвращает к выбору вида прогулки.
+    """
+    await state.clear()
+    with contextlib.suppress(Exception):
+        await callback.message.delete()
+    await callback.message.answer("Выберите вид прогулки:", reply_markup=walk_choice)
     await callback.answer()
 
 
@@ -51,7 +68,7 @@ async def process_stroller_walk_location(
     state: FSMContext,
 ) -> None:
     """
-    Принимаем live-локацию, фиксируем нулевую точку и стартуем счётчик.
+    Принимает лайв-локацию, фиксирует старт прогулки и выводит статус.
     """
     location = message.location
     user_id = message.from_user.id
@@ -60,7 +77,7 @@ async def process_stroller_walk_location(
     await state.update_data(step_goal=DEFAULT_STEP_GOAL)
 
     if not location.live_period:
-        await message.answer("❌ Пожалуйста, отправь именно *лайв*-локацию через 📎")
+        await message.answer("❌ Пожалуйста, отправь именно лайв-локацию через 📎")
         return
 
     user_coords.pop(user_id, None)
@@ -80,19 +97,19 @@ async def process_stroller_walk_location(
     user_walk_multiplier[user_id] = multiplier
     user_walk_started_at[user_id] = time.time()
 
-    temp_str = f"{'+' if (temp_c is not None and temp_c >= 0) else ''}{temp_c}°C" if temp_c is not None else "н/д"
-    temp_line = f"{temp_str}"
+    temp_str = (
+        f"{'+' if (temp_c is not None and temp_c >= 0) else ''}{temp_c}°C"
+        if temp_c is not None
+        else "н/д"
+    )
 
     sent = await message.answer(
-        f"{temp_line}\n"
+        f"{temp_str}\n"
         f"🚶 Вы прошли: 0 / {DEFAULT_STEP_GOAL} шагов\n"
         f"⭐ Баллы: 0 (коэфф: ×{multiplier})",
         reply_markup=end_walk_kb,
     )
-    user_msg_id[user_id] = {
-        "chat_id": message.chat.id,
-        "message_id": sent.message_id,
-    }
+    user_msg_id[user_id] = {"chat_id": message.chat.id, "message_id": sent.message_id}
     logger.info(
         "Начало прогулки (коляска) пользователя %s: message_id=%s; temp=%s; mul=%s",
         user_id,
@@ -100,5 +117,4 @@ async def process_stroller_walk_location(
         temp_c,
         multiplier,
     )
-
     await state.clear()
