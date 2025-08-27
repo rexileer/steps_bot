@@ -13,6 +13,7 @@ from app.steps_bot.services.buy_service import (
     format_order_message,
     load_product_summary,
     submit_order_to_cdek,
+    ensure_purchase_allowed,
 )
 from app.steps_bot.services.cdek_client import cdek_client
 from app.steps_bot.services.cdek_errors import CDEKAuthError, CDEKApiError
@@ -95,10 +96,16 @@ async def on_buy_click(callback: CallbackQuery, state: FSMContext) -> None:
     Инициирует процесс оформления заказа и запускает сбор данных.
     """
     try:
-        _, product_id = callback.data.split(":")
-        await state.update_data(product_id=int(product_id))
+        _, product_id_str = callback.data.split(":")
+        product_id = int(product_id_str)
+        await state.update_data(product_id=product_id)
     except Exception:
         await callback.answer("Ошибка данных товара", show_alert=True)
+        return
+
+    allowed, msg = await ensure_purchase_allowed(callback.from_user.id, product_id)
+    if not allowed:
+        await callback.answer(msg, show_alert=True)
         return
 
     return_cb = _extract_return_cb(callback.message.reply_markup)
@@ -378,8 +385,21 @@ async def on_confirm(callback: CallbackQuery, state: FSMContext) -> None:
         await callback.answer("Сессия устарела, начните заново", show_alert=True)
         return
 
+    try:
+        product_id = int(data.get("product_id"))
+    except Exception:
+        await callback.message.edit_text("Сессия устарела, начните оформление заново.")
+        await callback.answer()
+        return
+
+    allowed, msg = await ensure_purchase_allowed(callback.from_user.id, product_id)
+    if not allowed:
+        await callback.message.edit_text(msg)
+        await callback.answer()
+        return
+
     order = OrderInput(
-        product_id=int(data["product_id"]),
+        product_id=product_id,
         delivery_type=data["delivery_type"],
         city=data["city"],
         pvz_code=data.get("pvz_code"),
@@ -391,7 +411,7 @@ async def on_confirm(callback: CallbackQuery, state: FSMContext) -> None:
     user_id = callback.from_user.id
 
     try:
-        ok, info = await submit_order_to_cdek(order=order, user_id=user_id, city_code=city_code)
+        created, info = await submit_order_to_cdek(order=order, user_id=user_id, city_code=city_code)
     except ValueError as e:
         await callback.message.edit_text(escape(str(e)))
         await callback.answer()
@@ -405,7 +425,7 @@ async def on_confirm(callback: CallbackQuery, state: FSMContext) -> None:
         await callback.answer()
         return
 
-    if not ok:
+    if not created:
         await callback.message.edit_text(f"Не удалось оформить заказ: {escape(str(info))}")
         await callback.answer()
         return

@@ -172,3 +172,30 @@ def format_order_message(info: Dict[str, Any], delivery_kind: str, destination: 
         ]
     )
     return "\n".join(lines)
+
+
+async def ensure_purchase_allowed(user_id: int, product_id: int) -> tuple[bool, str]:
+    """
+    Проверяет доступность покупки: товар активен, у пользователя есть семья,
+    и суммарных баллов семьи достаточно для цены товара.
+    Возвращает (ok, сообщение_для_пользователя).
+    """
+    async with repo.get_session() as session:
+        result = await repo.get_product_with_category(session, product_id)
+        if not result:
+            return False, "Товар недоступен или уже куплен."
+
+        product, _ = result
+        try:
+            user, family, _ = await repo.get_user_with_family(session, user_id)
+        except ValueError:
+            return False, "Пользователь не найден."
+
+        if not family:
+            return False, "Для оформления покупки требуется семья."
+
+        enough = await repo.family_points_enough(session, family.id, int(product.price))
+        if not enough:
+            return False, "Недостаточно баллов семьи."
+
+        return True, "ok"
