@@ -8,6 +8,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from app.steps_bot.db.models.user import User
 from app.steps_bot.db.models.faq import FAQ
 from app.steps_bot.db.models.catalog import CatalogCategory, Product
+from app.steps_bot.db.models.promo import PromoGroup
 
 
 PER_PAGE = 6
@@ -139,3 +140,20 @@ def product_card_kb(product_id: int, cat_id: int, page: int) -> InlineKeyboardMa
             [InlineKeyboardButton(text="↩", callback_data=f"cat:{cat_id}:{page}")],
         ]
     )
+
+
+def promo_groups_kb(groups: List[PromoGroup]) -> InlineKeyboardMarkup:
+    """
+    Клавиатура групп промокодов с ценой.
+    """
+    rows: list[list[InlineKeyboardButton]] = [
+        [
+            InlineKeyboardButton(
+                text=f"{g.name} • {g.discount_percent}% • {g.price_points} баллов",
+                callback_data=f"promo_group:{g.id}",
+            )
+        ]
+        for g in groups
+    ]
+    rows.append([InlineKeyboardButton(text="↩", callback_data="catalog_root")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)

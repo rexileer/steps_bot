@@ -14,7 +14,9 @@ from core.models import (
     Order,
     OrderItem,
     UserAddress,
-    BotSetting
+    BotSetting,
+    PromoGroup,
+    PromoCode
 )
 
 admin.site.unregister(Group)
@@ -126,3 +128,43 @@ class OrderAdmin(admin.ModelAdmin):
 class BotSettingAdmin(admin.ModelAdmin):
     list_display = ("key", "value")
     search_fields = ("key",)
+from django.contrib import admin
+from core.models import PromoGroup, PromoCode
+
+
+class PromoCodeInline(admin.TabularInline):
+    """
+    Инлайн промокодов внутри группы.
+    """
+    model = PromoCode
+    extra = 0
+    fields = ("code", "max_uses", "used_count", "is_active")
+    show_change_link = True
+    can_delete = True
+
+
+@admin.register(PromoGroup)
+class PromoGroupAdmin(admin.ModelAdmin):
+    """
+    Управление группами промокодов.
+    """
+    list_display = ("id", "name", "discount_percent", "price_points", "is_active", "created_at")
+    list_filter = ("is_active",)
+    search_fields = ("name",)
+    ordering = ("-created_at",)
+    readonly_fields = ("created_at",)
+    inlines = (PromoCodeInline,)
+
+
+@admin.register(PromoCode)
+class PromoCodeAdmin(admin.ModelAdmin):
+    """
+    Управление отдельными промокодами.
+    """
+    list_display = ("id", "code", "group", "max_uses", "used_count", "is_active", "created_at")
+    list_filter = ("is_active", "group")
+    search_fields = ("code",)
+    autocomplete_fields = ("group",)
+    ordering = ("-created_at",)
+    readonly_fields = ("created_at",)
+    fields = ("code", "group", "max_uses", "used_count", "is_active", "created_at")

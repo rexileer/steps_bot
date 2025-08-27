@@ -2,7 +2,6 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 
-
 class UserRoleChoices(models.TextChoices):
     USER = "user", "Пользователь"
     ADMIN = "admin", "Админ"
@@ -251,3 +250,46 @@ class BotSetting(models.Model):
 
     def __str__(self):
         return f"{self.key} = {self.value}"
+
+
+class PromoGroup(models.Model):
+    """
+    Группа промокодов с процентной скидкой.
+    """
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(_("Название"), max_length=60, unique=True)
+    discount_percent = models.IntegerField(_("Скидка, %"), default=0)
+    price_points = models.IntegerField(_("Цена, баллы"), default=0)
+    is_active = models.BooleanField(_("Активна"), default=True)
+    created_at = models.DateTimeField(_("Создана"), auto_now_add=True)
+
+    class Meta:
+        db_table = "promo_groups"
+        managed = False
+        verbose_name = _("Группа промокодов")
+        verbose_name_plural = _("Группы промокодов")
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.discount_percent}%)"
+
+
+class PromoCode(models.Model):
+    """
+    Промокод без сроков действия.
+    """
+    id = models.AutoField(primary_key=True)
+    code = models.CharField(_("Код"), max_length=64, unique=True)
+    group = models.ForeignKey(PromoGroup, on_delete=models.CASCADE, related_name="codes", verbose_name=_("Группа"))
+    max_uses = models.IntegerField(_("Лимит использований"), default=1)
+    used_count = models.IntegerField(_("Использовано"), default=0)
+    is_active = models.BooleanField(_("Активен"), default=True)
+    created_at = models.DateTimeField(_("Создан"), auto_now_add=True)
+
+    class Meta:
+        db_table = "promo_codes"
+        managed = False
+        verbose_name = _("Промокод")
+        verbose_name_plural = _("Промокоды")
+
+    def __str__(self) -> str:
+        return self.code
