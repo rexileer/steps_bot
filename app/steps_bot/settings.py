@@ -1,16 +1,23 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from __future__ import annotations
+
 from typing import Optional
 
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
 class Settings(BaseSettings):
+    """
+    Настройки приложения, загружаемые из переменных окружения.
+    """
     BOT_TOKEN: str
     WEBHOOK_URL: str
-    
+
     POSTGRES_HOST: Optional[str] = None
     POSTGRES_PORT: Optional[int] = None
     POSTGRES_USER: Optional[str] = None
     POSTGRES_PASSWORD: Optional[str] = None
     POSTGRES_DB: Optional[str] = None
-    
+
     CDEK_ACCOUNT: Optional[str] = None
     CDEK_SECURE: Optional[str] = None
     CDEK_TEST_MODE: bool = False
@@ -25,8 +32,10 @@ class Settings(BaseSettings):
     DEFAULT_PACKAGE_L: int = 20
     DEFAULT_PACKAGE_W: int = 15
     DEFAULT_PACKAGE_H: int = 10
-    
-    model_config = SettingsConfigDict(env_file='.env')
-    
+
+    MEDIA_ROOT: str = "/app/media"
+
+    model_config = SettingsConfigDict(env_file=".env")
+
 
 config = Settings()

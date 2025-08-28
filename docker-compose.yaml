@@ -8,11 +8,13 @@ services:
     command: uvicorn app.steps_bot.main:app --host 0.0.0.0 --port 8080
     environment:
       - PYTHONPATH=/app
+      - MEDIA_ROOT=/app/media
     ports:
       - "8080:8080"
     volumes:
       - .:/app
       - ./logs:/app/logs
+      - media:/app/media
     depends_on:
       - postgres
 
@@ -38,11 +40,14 @@ services:
       - .env
     environment:
       - PYTHONPATH=/app
+      - MEDIA_ROOT=/app/media
     volumes:
       - .:/app
       - ./staticfiles:/app/staticfiles
+      - media:/app/media
     depends_on:
       - postgres
 
 volumes:
   pgdata:
+  media:

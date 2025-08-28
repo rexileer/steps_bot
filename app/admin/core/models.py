@@ -113,13 +113,18 @@ class TemperatureCoefficient(models.Model):
         return f"{self.get_walk_form_display()} {self.min_temp_c}–{self.max_temp_c}°C"
 
 
+
 class Content(models.Model):
+    """
+    Контент для сообщений бота с локальным файлом медиа.
+    """
     id = models.AutoField(primary_key=True)
     slug = models.CharField(_("Ключ"), max_length=100, unique=True)
     text = models.TextField(_("Текст"))
     media_type = models.CharField(_("Тип медиа"), max_length=10, choices=MediaTypeChoices.choices, default=MediaTypeChoices.NONE)
     telegram_file_id = models.CharField(_("Telegram file_id"), max_length=255, null=True, blank=True)
     media_url = models.CharField(_("URL медиа"), max_length=1024, null=True, blank=True)
+    file = models.FileField(_("Файл медиа"), upload_to="uploads/contents", null=True, blank=True, db_column="media_file")
 
     class Meta:
         db_table = "contents"
@@ -127,8 +132,18 @@ class Content(models.Model):
         verbose_name = _("Описание")
         verbose_name_plural = _("Описания")
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.slug
+
+    def save(self, *args, **kwargs) -> None:
+        """
+        Сбрасывает telegram_file_id при замене файла.
+        """
+        if self.pk and Content.objects.filter(pk=self.pk).exists():
+            old = Content.objects.get(pk=self.pk)
+            if old.file and old.file != self.file:
+                self.telegram_file_id = None
+        super().save(*args, **kwargs)
 
 
 class FAQ(models.Model):

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import datetime as dt
 
@@ -19,6 +21,7 @@ from app.steps_bot.storage.user_memory import (
     user_msg_id,
     user_walk_finished,
 )
+from app.steps_bot.services.ledger_service import accrue_steps_points
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +32,9 @@ async def finish_walk(
     target_message_id: int | None = None,
     user_id: int | None = None,
 ) -> None:
+    """
+    Завершает прогулку: фиксирует шаги, начисляет баллы в журнал и обновляет счётчик шагов.
+    """
     uid = (
         user_id
         if user_id is not None
@@ -51,69 +57,26 @@ async def finish_walk(
 
     try:
         async with get_session() as s:
-            # 1) Где мы вообще? (исключит «бот пишет в одну БД, админка читает из другой»)
-            dbinfo = await s.execute(text("select current_database(), current_user"))
-            db_name, db_user = dbinfo.first()
-            logger.info("DB check: current_database=%s, current_user=%s", db_name, db_user)
-
-            # 2) До апдейта: есть ли юзер с таким telegram_id?
-            before = await s.execute(
-                select(User.id, User.telegram_id, User.step_count, User.balance)
-                .where(User.telegram_id == uid)
+            await accrue_steps_points(
+                session=s,
+                user_id_or_telegram=uid,
+                amount=points,
+                title="Начисление за прогулку",
+                description=f"Шаги: {total_steps}, коэффициент: ×{multiplier}",
             )
-            row_before = before.first()
-            logger.info("Before update (by telegram_id=%s): %s", uid, row_before)
 
-            # 3) Прямой апдейт по telegram_id
-            upd = (
+            upd_steps = (
                 update(User)
-                .where(User.telegram_id == uid)
+                .where((User.telegram_id == uid) | (User.id == uid))
                 .values(
                     step_count=User.step_count + total_steps,
-                    balance=User.balance + points,
                     updated_at=finished_at,
                 )
-                .returning(User.id, User.telegram_id, User.step_count, User.balance)
             )
-            res = await s.execute(upd)
-            row_after = res.first()
-
-            if row_after:
-                logger.info(
-                    "Updated by telegram_id: id=%s, tg=%s, step_count=%s, balance=%s",
-                    row_after.id, row_after.telegram_id, row_after.step_count, row_after.balance
-                )
-            else:
-                # 4) Фолбэк: а вдруг у тебя User.id == telegram_id
-                logger.warning("No rows updated by telegram_id=%s, trying by id...", uid)
-                upd2 = (
-                    update(User)
-                    .where(User.id == uid)
-                    .values(
-                        step_count=User.step_count + total_steps,
-                        balance=User.balance + points,
-                        updated_at=finished_at,
-                    )
-                    .returning(User.id, User.telegram_id, User.step_count, User.balance)
-                )
-                res2 = await s.execute(upd2)
-                row_after2 = res2.first()
-                logger.info("Updated by id result: %s", row_after2)
-
-                # И ещё раз посмотрим, что лежит сейчас по обоим ключам
-                after_tg = await s.execute(
-                    select(User.id, User.telegram_id, User.step_count, User.balance)
-                    .where(User.telegram_id == uid)
-                )
-                after_id = await s.execute(
-                    select(User.id, User.telegram_id, User.step_count, User.balance)
-                    .where(User.id == uid)
-                )
-                logger.info("After check by telegram_id: %s", after_tg.first())
-                logger.info("After check by id: %s", after_id.first())
+            await s.execute(upd_steps)
 
     except Exception as e:
-        logger.exception("Failed to update user counters for %s: %s", uid, e)
+        logger.exception("Failed to finalize walk for %s: %s", uid, e)
 
     summary_text = (
         "🏁 Прогулка завершена!\n\n"
@@ -139,7 +102,6 @@ async def finish_walk(
         except Exception as e2:
             logger.exception("Fallback answer failed: %s", e2)
 
-    # Чистим времянки
     user_coords.pop(uid, None)
     user_was_over_speed.pop(uid, None)
     user_walk_multiplier.pop(uid, None)

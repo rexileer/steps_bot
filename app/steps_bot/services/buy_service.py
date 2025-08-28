@@ -9,6 +9,7 @@ from app.steps_bot.services.cdek_client import cdek_client
 from app.steps_bot.settings import config
 from app.steps_bot.states.order import OrderInput
 from app.steps_bot.db import repo
+from app.steps_bot.services.ledger_service import purchase_from_family_proportional
 
 
 def _order_number(user_id: int, product_id: int) -> str:
@@ -118,36 +119,54 @@ async def submit_order_to_cdek(order: OrderInput, user_id: int, city_code: int |
     return False, "Не удалось создать заказ"
 
 
-async def finalize_successful_order(user_id: int, product_id: int, cdek_uuid: str) -> Dict[str, Any]:
+async def finalize_successful_order(
+    user_id: int,
+    product_id: int,
+    cdek_uuid: str,
+) -> Dict[str, Any]:
     """
-    Валидирует баллы семьи, списывает пропорционально, создаёт заказ и удаляет товар.
+    Создаёт заказ, списывает баллы с семьи пропорционально и пишет проводки.
     """
     async with repo.get_session() as session:
         result = await repo.get_product_with_category(session, product_id)
         if not result:
             raise ValueError("Товар недоступен")
+
         product, category = result
         user, family, _ = await repo.get_user_with_family(session, user_id)
         if not family:
             raise ValueError("Для оформления покупки требуется семья")
-        enough = await repo.family_points_enough(session, family.id, product.price)
+
+        enough = await repo.family_points_enough(session, family.id, int(product.price))
         if not enough:
             raise ValueError("Недостаточно баллов семьи")
-        await repo.deduct_family_points_proportional(session, family.id, product.price)
+
         order = await repo.create_order_with_item(
             session=session,
-            user_id=user_id,
+            user_id=user.id,
             product=product,
             cdek_uuid=cdek_uuid,
         )
+
+        await purchase_from_family_proportional(
+            session=session,
+            family_id=family.id,
+            amount=int(product.price),
+            order_id=order.id,
+            title="Покупка в каталоге",
+            description=product.title,
+        )
+
         await repo.delete_product(session, product.id)
+
         return {
             "order_id": order.id,
             "product_title": product.title,
             "category_name": category.name if category else None,
-            "price": product.price,
+            "price": int(product.price),
             "cdek_uuid": cdek_uuid,
         }
+
 
 
 def format_order_message(info: Dict[str, Any], delivery_kind: str, destination: str) -> str:

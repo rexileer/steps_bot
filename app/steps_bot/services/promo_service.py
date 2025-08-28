@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 from typing import Optional, Sequence, Tuple
 
 from sqlalchemy import select
 
-from app.steps_bot.db.repo import get_session, get_user_with_family, family_points_enough, deduct_family_points_proportional
+from app.steps_bot.db.repo import get_session, get_user_with_family, family_points_enough
 from app.steps_bot.db.models.promo import PromoGroup, PromoCode
+from app.steps_bot.services.ledger_service import purchase_from_family_proportional
 
 
 async def list_active_groups() -> Sequence[PromoGroup]:
@@ -19,9 +22,12 @@ async def list_active_groups() -> Sequence[PromoGroup]:
         return res.scalars().all()
 
 
-async def purchase_and_acquire_code_family(group_id: int, user_id_or_telegram: int) -> Tuple[Optional[str], Optional[PromoGroup], Optional[str]]:
+async def purchase_and_acquire_code_family(
+    group_id: int,
+    user_id_or_telegram: int,
+) -> Tuple[Optional[str], Optional[PromoGroup], Optional[str]]:
     """
-    Покупает промокод за баллы семьи и выдаёт код из группы.
+    Покупает промокод за баллы семьи, создаёт проводки списания и выдаёт код.
     Возвращает (код|None, группа|None, ошибка|None).
     """
     async with get_session() as session:
@@ -50,11 +56,19 @@ async def purchase_and_acquire_code_family(group_id: int, user_id_or_telegram: i
                 return None, group, "Для покупки требуется семья"
 
             price = int(group.price_points or 0)
-            enough = await family_points_enough(session, family.id, price)
-            if not enough:
-                return None, group, f"Недостаточно баллов семьи: нужно {price}"
+            if price > 0:
+                enough = await family_points_enough(session, family.id, price)
+                if not enough:
+                    return None, group, f"Недостаточно баллов семьи: нужно {price}"
 
-            await deduct_family_points_proportional(session, family.id, price)
+                await purchase_from_family_proportional(
+                    session=session,
+                    family_id=family.id,
+                    amount=price,
+                    order_id=None,
+                    title="Покупка промокода",
+                    description=f"{group.name}",
+                )
 
             code_obj.used_count += 1
             if code_obj.used_count >= code_obj.max_uses:
@@ -62,7 +76,7 @@ async def purchase_and_acquire_code_family(group_id: int, user_id_or_telegram: i
 
             await session.flush()
             return code_obj.code, group, None
-        
+
 
 async def acquire_code(group_id: int) -> Tuple[Optional[str], Optional[PromoGroup]]:
     """

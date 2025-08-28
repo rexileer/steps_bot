@@ -10,6 +10,7 @@ from app.steps_bot.db.models.coefficients import TemperatureCoefficient
 from app.steps_bot.db.models.captions import MediaType, Content
 from app.steps_bot.db.models.faq import FAQ
 from app.steps_bot.db.models.promo import PromoGroup, PromoCode
+from app.steps_bot.db.models.ledger import LedgerEntry, OwnerType, OperationType
 from app.steps_bot.db.models.catalog import (
     CatalogCategory,
     Product,
@@ -40,5 +41,7 @@ __all__ = [
     "UserAddress",
     "PromoCode",
     "PromoGroup",
-    ""
+    "LedgerEntry",
+    "OwnerType",
+    "OperationType",
 ]
