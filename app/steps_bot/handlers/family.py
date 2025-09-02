@@ -11,6 +11,7 @@ from app.steps_bot.presentation.keyboards.generic_kb import build_owner_kb, invi
 from app.steps_bot.services.family_service import FamilyService
 from app.steps_bot.states.family_creation import FamilyCreation
 from app.steps_bot.states.family_invite import FamilyInvite
+from app.steps_bot.states.family_rename import FamilyRename
 
 router = Router()
 
@@ -231,3 +232,48 @@ async def member_info(cb: CallbackQuery):
     text = "\n".join(lines)
 
     await cb.answer(text, show_alert=True)
+    
+
+@router.callback_query(F.data == "family_rename")
+async def ask_new_family_name(callback: CallbackQuery, state: FSMContext):
+    """
+    Запрашивает новое название семьи
+    """
+    await callback.message.edit_text(
+        "Введите новое название семьи:", reply_markup=family_cancel_kb
+    )
+    await state.set_state(FamilyRename.waiting_for_name)
+    await callback.answer()
+
+
+@router.callback_query(
+    F.data == "family_cancel_create", FamilyRename.waiting_for_name
+)
+async def cancel_family_rename(callback: CallbackQuery, state: FSMContext):
+    """
+    Отменяет переименование семьи и возвращает меню семьи
+    """
+    await state.clear()
+    await callback.message.delete()
+    await _show_family_menu(callback.message, callback.from_user.id)
+    await callback.answer("Отменено")
+
+
+@router.message(FamilyRename.waiting_for_name)
+async def process_new_family_name(msg: Message, state: FSMContext):
+    """
+    Обрабатывает новое название семьи
+    """
+    name = (msg.text or "").strip()
+
+    try:
+        await FamilyService.rename_family(msg.from_user.id, name)
+    except ValueError as e:
+        await flash(msg, f"⚠️ {e}")
+        await state.clear()
+        await _show_family_menu(msg, msg.from_user.id)
+        return
+
+    await flash(msg, "Название обновлено")
+    await state.clear()
+    await _show_family_menu(msg, msg.from_user.id)

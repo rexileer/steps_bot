@@ -15,6 +15,36 @@ from app.steps_bot.db.models.user import User
 
 class FamilyService:
     @staticmethod
+    async def rename_family(telegram_id: int, new_name: str) -> Family:
+        """
+        Переименовывает семью пользователя
+        """
+        name = (new_name or "").strip()
+        if not name:
+            raise ValueError("Название не может быть пустым")
+        if len(name) > 50:
+            raise ValueError("Название слишком длинное")
+
+        async with get_session() as session:
+            user = await session.scalar(
+                select(User).where(User.telegram_id == telegram_id)
+            )
+            if not user or not user.family_id:
+                raise ValueError("Вы не состоите в семье")
+
+            dup = await session.scalar(select(Family).where(Family.name == name))
+            if dup:
+                raise ValueError("Семья с таким названием уже существует")
+
+            family = await session.get(Family, user.family_id)
+            if not family:
+                raise ValueError("Семья не найдена")
+
+            family.name = name
+            await session.flush()
+            return family
+        
+    @staticmethod
     async def get_family_info(telegram_id: int) -> tuple[Family | None, list[User]]:
         async with get_session() as session:
             user = await session.scalar(

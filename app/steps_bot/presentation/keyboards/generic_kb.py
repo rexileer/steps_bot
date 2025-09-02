@@ -17,18 +17,24 @@ PER_PAGE = 6
 # Меню овнера семьи
 def build_owner_kb(members: List[User], me_tg_id: int) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
-        [InlineKeyboardButton(text="Добавить участников", callback_data="family_invite")]
+        [InlineKeyboardButton(text="Добавить участников",
+                              callback_data="family_invite")]
     ]
 
     for m in members:
         label = f"👁 @{m.username}"
-        row = [InlineKeyboardButton(text=label, callback_data=f"family_info:{m.id}")]
+        row = [InlineKeyboardButton(text=label,
+                                    callback_data=f"family_info:{m.id}")]
         if m.telegram_id != me_tg_id:
-            row.append(InlineKeyboardButton(text="❌ Удалить", callback_data=f"family_kick:{m.id}"))
+            row.append(InlineKeyboardButton(text="❌ Удалить",
+                                            callback_data=f"family_kick:{m.id}"))
         rows.append(row)
 
     rows += [
-        [InlineKeyboardButton(text="Расформировать", callback_data="disband")],
+        [InlineKeyboardButton(text="✏️ Переименовать",
+                              callback_data="family_rename")],
+        [InlineKeyboardButton(text="Расформировать",
+                              callback_data="disband")],
         [InlineKeyboardButton(text="↩", callback_data="back")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -47,21 +53,31 @@ def invite_response_kb(inv_id: int) -> InlineKeyboardMarkup:
 
 
 # Меню обычного участника
-def build_member_kb(members: List[User], me_tg_id: int, owner_id: int) -> InlineKeyboardMarkup:
+def build_member_kb(members: List[User],
+                    me_tg_id: int,
+                    owner_id: int) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
-        [InlineKeyboardButton(text="Добавить участников", callback_data="family_invite")]
+        [InlineKeyboardButton(text="Добавить участников",
+                              callback_data="family_invite")]
     ]
 
     for m in members:
         tag = "👑 " if m.id == owner_id else "👁 "
-        label = f"{tag}@{m.username}" + (" (вы)" if m.telegram_id == me_tg_id else "")
-        row = [InlineKeyboardButton(text=label, callback_data=f"family_info:{m.id}")]
+        label = f"{tag}@{m.username}" + (
+            " (вы)" if m.telegram_id == me_tg_id else ""
+        )
+        row = [InlineKeyboardButton(text=label,
+                                    callback_data=f"family_info:{m.id}")]
         if m.id != owner_id:
-            row.append(InlineKeyboardButton(text="❌ Удалить", callback_data=f"family_kick:{m.id}"))
+            row.append(InlineKeyboardButton(text="❌ Удалить",
+                                            callback_data=f"family_kick:{m.id}"))
         rows.append(row)
 
     rows += [
-        [InlineKeyboardButton(text="Выйти из семьи", callback_data="family_leave")],
+        [InlineKeyboardButton(text="✏️ Переименовать",
+                              callback_data="family_rename")],
+        [InlineKeyboardButton(text="Выйти из семьи",
+                              callback_data="family_leave")],
         [InlineKeyboardButton(text="↩", callback_data="back")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=rows)
