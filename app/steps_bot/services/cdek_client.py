@@ -95,5 +95,61 @@ class CDEKClient:
                 data = await resp.json()
                 return {"ok": True, "data": data}
 
+    async def get_order_by_uuid(self, uuid: str) -> Dict[str, Any]:
+        """Возвращает информацию о заказе по UUID."""
+        async with aiohttp.ClientSession() as session:
+            token = await self._ensure_token(session)
+            headers = {"Authorization": f"Bearer {token}"}
+            url = f"{self.base_url}/orders/{uuid}"
+            async with session.get(url, headers=headers, timeout=20) as resp:
+                text = await resp.text()
+                if resp.status == 401:
+                    raise CDEKAuthError("Авторизация CДЭК отклонена.")
+                if resp.status >= 500:
+                    raise CDEKApiError(f"Ошибка получения заказа: {resp.status} {text}")
+                if resp.status >= 400:
+                    return {"ok": False, "status": resp.status, "text": text}
+                data = await resp.json()
+                return {"ok": True, "data": data}
+
+    async def delete_order(self, uuid: str) -> Dict[str, Any]:
+        """Удаляет заказ по UUID (для безопасной проверки без оставления заказа в ЛК)."""
+        async with aiohttp.ClientSession() as session:
+            token = await self._ensure_token(session)
+            headers = {"Authorization": f"Bearer {token}"}
+            url = f"{self.base_url}/orders/{uuid}"
+            async with session.delete(url, headers=headers, timeout=20) as resp:
+                text = await resp.text()
+                if resp.status == 401:
+                    raise CDEKAuthError("Авторизация CДЭК отклонена.")
+                if resp.status >= 500:
+                    raise CDEKApiError(f"Ошибка удаления заказа: {resp.status} {text}")
+                # CDEK обычно возвращает 200/204 при успешном удалении
+                if resp.status >= 400:
+                    return {"ok": False, "status": resp.status, "text": text}
+                return {"ok": True}
+
+    async def list_orders(self, *, date_from: str | None = None, date_to: str | None = None, page: int = 0, size: int = 10) -> Dict[str, Any]:
+        """Возвращает список заказов по фильтрам периода (если поддерживается аккаунтом/окружением)."""
+        async with aiohttp.ClientSession() as session:
+            token = await self._ensure_token(session)
+            headers = {"Authorization": f"Bearer {token}"}
+            params: Dict[str, Any] = {"page": page, "size": size}
+            if date_from:
+                params["date_from"] = date_from
+            if date_to:
+                params["date_to"] = date_to
+            url = f"{self.base_url}/orders"
+            async with session.get(url, headers=headers, params=params, timeout=30) as resp:
+                text = await resp.text()
+                if resp.status == 401:
+                    raise CDEKAuthError("Авторизация CДЭК отклонена.")
+                if resp.status >= 500:
+                    raise CDEKApiError(f"Ошибка получения списка заказов: {resp.status} {text}")
+                if resp.status >= 400:
+                    return {"ok": False, "status": resp.status, "text": text}
+                data = await resp.json()
+                return {"ok": True, "data": data}
+
 
 cdek_client = CDEKClient()

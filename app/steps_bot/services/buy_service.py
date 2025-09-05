@@ -6,10 +6,14 @@ from html import escape
 from typing import Any, Dict, Tuple, Optional
 
 from app.steps_bot.services.cdek_client import cdek_client
+import contextlib
 from app.steps_bot.settings import config
 from app.steps_bot.states.order import OrderInput
 from app.steps_bot.db import repo
-from app.steps_bot.services.ledger_service import purchase_from_family_proportional
+from app.steps_bot.services.ledger_service import (
+    purchase_from_family_proportional,
+    purchase_from_user,
+)
 
 
 def _order_number(user_id: int, product_id: int) -> str:
@@ -134,12 +138,15 @@ async def finalize_successful_order(
 
         product, category = result
         user, family, _ = await repo.get_user_with_family(session, user_id)
-        if not family:
-            raise ValueError("Для оформления покупки требуется семья")
-
-        enough = await repo.family_points_enough(session, family.id, int(product.price))
-        if not enough:
-            raise ValueError("Недостаточно баллов семьи")
+        # Проверяем доступность по семье или по личному балансу
+        if family:
+            enough_family = await repo.family_points_enough(session, family.id, int(product.price))
+            if not enough_family:
+                raise ValueError("Недостаточно баллов семьи")
+        else:
+            # Проверяем личный баланс
+            if int(user.balance) < int(product.price):
+                raise ValueError("Недостаточно баллов")
 
         order = await repo.create_order_with_item(
             session=session,
@@ -148,14 +155,24 @@ async def finalize_successful_order(
             cdek_uuid=cdek_uuid,
         )
 
-        await purchase_from_family_proportional(
-            session=session,
-            family_id=family.id,
-            amount=int(product.price),
-            order_id=order.id,
-            title="Покупка в каталоге",
-            description=product.title,
-        )
+        if family:
+            await purchase_from_family_proportional(
+                session=session,
+                family_id=family.id,
+                amount=int(product.price),
+                order_id=order.id,
+                title="Покупка в каталоге",
+                description=product.title,
+            )
+        else:
+            await purchase_from_user(
+                session=session,
+                user_id_or_telegram=user.id,
+                amount=int(product.price),
+                order_id=order.id,
+                title="Покупка в каталоге",
+                description=product.title,
+            )
 
         await repo.delete_product(session, product.id)
 
@@ -193,6 +210,31 @@ def format_order_message(info: Dict[str, Any], delivery_kind: str, destination: 
     return "\n".join(lines)
 
 
+async def probe_cdek_order(order: OrderInput, user_id: int, city_code: int | None) -> tuple[bool, str]:
+    """
+    Тестово создаёт заказ в CDEK и сразу удаляет его. Возвращает (ok, сообщение/uuid).
+    Не трогает БД, балансы и товары.
+    """
+    payload = await build_cdek_payload(order, user_id=user_id, city_code=city_code)
+    created, info = await submit_order_to_cdek(order, user_id=user_id, city_code=city_code)
+    if not created:
+        return False, info
+    uuid = info
+    # Попробуем прочитать, чтобы убедиться что заказ попал в ЛК
+    try:
+        fetched = await cdek_client.get_order_by_uuid(uuid)
+        # Даже если чтение ок, удалим его чтобы не мусорить в ЛК
+        await cdek_client.delete_order(uuid)
+        if fetched.get("ok"):
+            return True, uuid
+        return False, f"Не удалось подтвердить заказ: {fetched.get('status')} {fetched.get('text')}"
+    except Exception as e:
+        # Пытаемся удалить на всякий случай
+        with contextlib.suppress(Exception):
+            await cdek_client.delete_order(uuid)
+        return False, str(e)
+
+
 async def ensure_purchase_allowed(user_id: int, product_id: int) -> tuple[bool, str]:
     """
     Проверяет доступность покупки: товар активен, у пользователя есть семья,
@@ -210,11 +252,14 @@ async def ensure_purchase_allowed(user_id: int, product_id: int) -> tuple[bool, 
         except ValueError:
             return False, "Пользователь не найден."
 
-        if not family:
-            return False, "Для оформления покупки требуется семья."
+        if family:
+            enough_family = await repo.family_points_enough(session, family.id, int(product.price))
+            if not enough_family:
+                return False, "Недостаточно баллов семьи."
+            return True, "ok"
 
-        enough = await repo.family_points_enough(session, family.id, int(product.price))
-        if not enough:
-            return False, "Недостаточно баллов семьи."
+        # Без семьи — достаточно ли личных баллов
+        if int(user.balance) < int(product.price):
+            return False, "Недостаточно баллов."
 
         return True, "ok"

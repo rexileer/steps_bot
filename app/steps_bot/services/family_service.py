@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 
 from app.steps_bot.db.repo import get_session
+from app.steps_bot.services.ledger_service import transfer_user_to_family
 from app.steps_bot.db.models.family import (
     Family,
     FamilyInvitation,
@@ -162,6 +163,13 @@ class FamilyService:
                     raise ValueError("В семье уже 5 участников")
                 
                 inv.status = FamilyInviteStatus.ACCEPTED
+                # Переносим личный баланс участника в семью
+                await transfer_user_to_family(
+                    session,
+                    invitee_tg,
+                    inv.family_id,
+                    title="Перевод при вступлении в семью",
+                )
                 invitee.family_id = inv.family_id
                 inv.responded_at = func.now()
                 return True
@@ -179,6 +187,13 @@ class FamilyService:
                 return
 
             fam_id = user.family_id
+            # Переносим остаток личного баланса в семью перед выходом
+            await transfer_user_to_family(
+                session,
+                telegram_id,
+                fam_id,
+                title="Перевод при выходе из семьи",
+            )
             user.family_id = None
             await session.flush()
 
@@ -231,6 +246,14 @@ class FamilyService:
             if victim.id == owner.id:
                 raise ValueError("Нельзя удалить самого себя")
 
+            # Переносим остаток личного баланса жертвы в семью перед удалением
+            if victim and victim.family_id:
+                await transfer_user_to_family(
+                    session,
+                    victim.id,
+                    victim.family_id,
+                    title="Перевод при удалении из семьи",
+                )
             victim.family_id = None
 
             await session.execute(
@@ -296,7 +319,8 @@ class FamilyService:
             )
 
             total_steps   = sum(m.step_count or 0 for m in members)
-            total_balance = sum(m.balance     or 0 for m in members)
+            # В общий баланс включаем семейный баланс + суммы личных балансов
+            total_balance = int(family.balance or 0) + sum(int(m.balance or 0) for m in members)
 
             return (
                 family,

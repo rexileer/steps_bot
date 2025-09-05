@@ -15,6 +15,51 @@ from app.steps_bot.db.models.ledger import (
 )
 
 
+async def transfer_user_to_family(
+    session: AsyncSession,
+    user_id_or_telegram: int,
+    family_id: int,
+    title: str = "Перевод в семейный баланс",
+    description: Optional[str] = None,
+) -> Optional[LedgerEntry]:
+    """
+    Переносит весь личный баланс пользователя в баланс семьи. Возвращает запись журнала перевода
+    (owner_type=family), если было что переносить. Если баланс нулевой — возвращает None.
+    """
+    user = await _get_user_by_id_or_telegram(session, user_id_or_telegram)
+    if not user:
+        raise ValueError("Пользователь не найден")
+
+    fam = (
+        await session.execute(select(Family).where(Family.id == family_id).with_for_update())
+    ).scalar_one_or_none()
+    if not fam:
+        raise ValueError("Семья не найдена")
+
+    q = select(User).where(User.id == (user.id)).with_for_update()
+    ul = (await session.execute(q)).scalar_one()
+    amount = int(ul.balance)
+    if amount <= 0:
+        return None
+
+    ul.balance = 0
+    fam.balance = int(fam.balance) + amount
+
+    entry = LedgerEntry(
+        owner_type=OwnerType.FAMILY,
+        family_id=fam.id,
+        operation=OperationType.TRANSFER,
+        amount=amount,
+        balance_after=int(fam.balance),
+        title=title,
+        description=description,
+        created_at=dt.datetime.now(tz=dt.timezone.utc),
+    )
+    session.add(entry)
+    await session.flush()
+    return entry
+
+
 async def _get_user_by_id_or_telegram(
     session: AsyncSession,
     user_id_or_telegram: int,
@@ -45,7 +90,8 @@ async def accrue_steps_points(
     description: Optional[str] = None,
 ) -> LedgerEntry:
     """
-    Начисляет пользователю баллы за шаги и пишет запись в журнал.
+    Начисляет баллы за шаги: если пользователь состоит в семье — на баланс семьи,
+    иначе — на личный баланс. Пишет запись в журнал.
     """
     if amount <= 0:
         raise ValueError("Сумма должна быть положительной")
@@ -54,21 +100,39 @@ async def accrue_steps_points(
     if not user:
         raise ValueError("Пользователь не найден")
 
-    q = select(User).where(User.id == user.id).with_for_update()
-    user_locked = (await session.execute(q)).scalar_one()
-
-    user_locked.balance = int(user_locked.balance) + int(amount)
-
-    entry = LedgerEntry(
-        owner_type=OwnerType.USER,
-        user_id=user_locked.id,
-        operation=OperationType.STEPS_ACCRUAL,
-        amount=int(amount),
-        balance_after=int(user_locked.balance),
-        title=title,
-        description=description,
-        created_at=dt.datetime.now(tz=dt.timezone.utc),
-    )
+    if user.family_id:
+        fam = (
+            await session.execute(
+                select(Family).where(Family.id == user.family_id).with_for_update()
+            )
+        ).scalar_one_or_none()
+        if not fam:
+            raise ValueError("Семья не найдена")
+        fam.balance = int(fam.balance) + int(amount)
+        entry = LedgerEntry(
+            owner_type=OwnerType.FAMILY,
+            family_id=fam.id,
+            operation=OperationType.STEPS_ACCRUAL,
+            amount=int(amount),
+            balance_after=int(fam.balance),
+            title=title,
+            description=description,
+            created_at=dt.datetime.now(tz=dt.timezone.utc),
+        )
+    else:
+        q = select(User).where(User.id == user.id).with_for_update()
+        user_locked = (await session.execute(q)).scalar_one()
+        user_locked.balance = int(user_locked.balance) + int(amount)
+        entry = LedgerEntry(
+            owner_type=OwnerType.USER,
+            user_id=user_locked.id,
+            operation=OperationType.STEPS_ACCRUAL,
+            amount=int(amount),
+            balance_after=int(user_locked.balance),
+            title=title,
+            description=description,
+            created_at=dt.datetime.now(tz=dt.timezone.utc),
+        )
     session.add(entry)
     await session.flush()
     return entry
@@ -170,6 +234,47 @@ async def purchase_from_family_proportional(
         session.add(e)
     await session.flush()
     return entries
+
+
+async def purchase_from_user(
+    session: AsyncSession,
+    user_id_or_telegram: int,
+    amount: int,
+    order_id: Optional[int] = None,
+    title: str = "Покупка",
+    description: Optional[str] = None,
+) -> LedgerEntry:
+    """
+    Списывает баллы за покупку с личного счёта пользователя и пишет запись в журнал.
+    """
+    if amount <= 0:
+        raise ValueError("Сумма должна быть положительной")
+
+    user = await _get_user_by_id_or_telegram(session, user_id_or_telegram)
+    if not user:
+        raise ValueError("Пользователь не найден")
+
+    q = select(User).where(User.id == user.id).with_for_update()
+    user_locked = (await session.execute(q)).scalar_one()
+    if int(user_locked.balance) < int(amount):
+        raise ValueError("Недостаточно баллов")
+
+    user_locked.balance = int(user_locked.balance) - int(amount)
+
+    entry = LedgerEntry(
+        owner_type=OwnerType.USER,
+        user_id=user_locked.id,
+        operation=OperationType.PURCHASE,
+        amount=-int(amount),
+        balance_after=int(user_locked.balance),
+        order_id=order_id,
+        title=title,
+        description=description,
+        created_at=dt.datetime.now(tz=dt.timezone.utc),
+    )
+    session.add(entry)
+    await session.flush()
+    return entry
 
 
 async def get_history_for_user_with_family(

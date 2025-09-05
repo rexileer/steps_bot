@@ -18,6 +18,7 @@ from app.steps_bot.handlers import end_walk
 from app.steps_bot.handlers import buy
 from app.steps_bot.handlers import promo
 from app.steps_bot.handlers import history
+from app.steps_bot.handlers import admin_tools
 
 bot = Bot(
     token=config.BOT_TOKEN,
@@ -40,3 +41,4 @@ dp.include_router(end_walk.router)
 dp.include_router(buy.router)
 dp.include_router(promo.router)
 dp.include_router(history.router)
+dp.include_router(admin_tools.router)
