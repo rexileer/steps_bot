@@ -1,6 +1,8 @@
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
-RUN apt-get update && apt-get install -y build-essential gcc && apt-get clean
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential gcc libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8 \
