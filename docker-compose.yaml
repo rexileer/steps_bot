@@ -5,7 +5,7 @@ services:
     restart: always
     env_file:
       - .env
-    command: uvicorn app.steps_bot.main:app --host 0.0.0.0 --port 8080
+    command: python app/steps_bot/polling.py
     environment:
       - PYTHONPATH=/app
       - MEDIA_ROOT=/app/media
