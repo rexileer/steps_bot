@@ -446,8 +446,12 @@ async def on_confirm(callback: CallbackQuery, state: FSMContext) -> None:
     text = format_order_message(info_dict, order.delivery_type, dest)
 
     await state.clear()
+    # После успешного оформления показываем кнопку возврата в главное меню
+    kb = InlineKeyboardBuilder()
+    kb.button(text="↩", callback_data="back")
+    kb.adjust(1)
     await callback.message.edit_text(
         text,
-        reply_markup=back_to_delivery_kb().as_markup(),
+        reply_markup=kb.as_markup(),
     )
     await callback.answer()
