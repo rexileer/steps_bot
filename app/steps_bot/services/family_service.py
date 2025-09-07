@@ -81,6 +81,15 @@ class FamilyService:
             session.add(family)
             await session.flush()
 
+            # При создании семьи владелец вносит свои личные баллы в семейный баланс
+            # Переносим баланс и привязываем к семье
+            from app.steps_bot.services.ledger_service import transfer_user_to_family
+            await transfer_user_to_family(
+                session,
+                telegram_id,
+                family.id,
+                title="Перевод при создании семьи",
+            )
             owner.family_id = family.id
             await session.flush()
             return family
@@ -187,13 +196,8 @@ class FamilyService:
                 return
 
             fam_id = user.family_id
-            # Переносим остаток личного баланса в семью перед выходом
-            await transfer_user_to_family(
-                session,
-                telegram_id,
-                fam_id,
-                title="Перевод при выходе из семьи",
-            )
+            # При выходе пользователь теряет личные баллы: обнуляем личный баланс без перевода
+            user.balance = 0
             user.family_id = None
             await session.flush()
 
@@ -246,14 +250,8 @@ class FamilyService:
             if victim.id == owner.id:
                 raise ValueError("Нельзя удалить самого себя")
 
-            # Переносим остаток личного баланса жертвы в семью перед удалением
-            if victim and victim.family_id:
-                await transfer_user_to_family(
-                    session,
-                    victim.id,
-                    victim.family_id,
-                    title="Перевод при удалении из семьи",
-                )
+            # При удалении участник теряет личные баллы
+            victim.balance = 0
             victim.family_id = None
 
             await session.execute(
@@ -284,10 +282,11 @@ class FamilyService:
 
             fam_id = owner.family_id
 
+            # При расформировании все участники теряют личные баллы и отвязываются
             await session.execute(
                 update(User)
                 .where(User.family_id == fam_id)
-                .values(family_id=None)
+                .values(family_id=None, balance=0)
             )
 
             await session.execute(
@@ -295,6 +294,7 @@ class FamilyService:
             )
 
             fam = await session.get(Family, fam_id)
+            # Фактически семейный баланс исчезает вместе с семьёй
             await session.delete(fam)
             
     @staticmethod

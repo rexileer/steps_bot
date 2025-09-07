@@ -21,10 +21,16 @@ async def show_balance(callback: CallbackQuery):
         total_balance,
     ) = await FamilyService.get_family_stats(user_id)
 
-    text = (
-        f"<b>Ваши баллы:</b> {my_balance}\n"
-        f"<b>Баллы семьи:</b> {total_balance}"
-    )
+    if family:
+        # В семье показываем только общий семейный баланс
+        text = (
+            f"<b>Баллы семьи:</b> {total_balance}"
+        )
+    else:
+        # Вне семьи показываем только личный баланс
+        text = (
+            f"<b>Ваши баллы:</b> {my_balance}"
+        )
 
     await callback.message.answer(text, reply_markup=balance_kb)
     await callback.answer()
