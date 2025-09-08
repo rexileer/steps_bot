@@ -55,7 +55,19 @@ async def transfer_user_to_family(
         description=description,
         created_at=dt.datetime.now(tz=dt.timezone.utc),
     )
+    # Пользовательская запись для учёта вклада
+    user_entry = LedgerEntry(
+        owner_type=OwnerType.USER,
+        user_id=ul.id,
+        operation=OperationType.TRANSFER,
+        amount=int(amount),
+        balance_after=int(ul.balance),
+        title=title,
+        description=description,
+        created_at=dt.datetime.now(tz=dt.timezone.utc),
+    )
     session.add(entry)
+    session.add(user_entry)
     await session.flush()
     return entry
 
@@ -119,6 +131,18 @@ async def accrue_steps_points(
             description=description,
             created_at=dt.datetime.now(tz=dt.timezone.utc),
         )
+        # Также фиксируем пользовательскую проводку для статистики вклада
+        user_entry = LedgerEntry(
+            owner_type=OwnerType.USER,
+            user_id=user.id,
+            operation=OperationType.STEPS_ACCRUAL,
+            amount=int(amount),
+            balance_after=None,
+            title=title,
+            description=description,
+            created_at=dt.datetime.now(tz=dt.timezone.utc),
+        )
+        session.add(user_entry)
     else:
         q = select(User).where(User.id == user.id).with_for_update()
         user_locked = (await session.execute(q)).scalar_one()
@@ -275,6 +299,32 @@ async def purchase_from_user(
     session.add(entry)
     await session.flush()
     return entry
+
+
+async def get_user_contribution_points(
+    session: AsyncSession,
+    user_id: int,
+) -> int:
+    """
+    Возвращает суммарные заработанные пользователем баллы (вклад):
+    суммируются начисления по операциям STEPS_ACCRUAL и PROMO_ACCRUAL
+    из пользовательских проводок (owner_type = user).
+    """
+    rows = (
+        await session.execute(
+            select(func.coalesce(func.sum(LedgerEntry.amount), 0))
+            .where(
+                (LedgerEntry.owner_type == OwnerType.USER)
+                & (LedgerEntry.user_id == user_id)
+                & (LedgerEntry.operation.in_([
+                    OperationType.STEPS_ACCRUAL,
+                    OperationType.PROMO_ACCRUAL,
+                    OperationType.TRANSFER,
+                ]))
+            )
+        )
+    ).scalar_one()
+    return int(rows or 0)
 
 
 async def get_history_for_user_with_family(

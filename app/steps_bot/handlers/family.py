@@ -9,6 +9,8 @@ from app.steps_bot.presentation.keyboards.simple_kb import no_family_kb, family_
 
 from app.steps_bot.presentation.keyboards.generic_kb import build_owner_kb, invite_response_kb, build_member_kb
 from app.steps_bot.services.family_service import FamilyService
+from app.steps_bot.db.repo import get_session
+from app.steps_bot.services.ledger_service import get_user_contribution_points
 from app.steps_bot.states.family_creation import FamilyCreation
 from app.steps_bot.states.family_invite import FamilyInvite
 from app.steps_bot.states.family_rename import FamilyRename
@@ -223,11 +225,15 @@ async def member_info(cb: CallbackQuery):
 
     full_name = " ".join(filter(None, [member.first_name, member.last_name])).strip()
 
+    # Баллы вклада: суммируем начисления пользователя по проводкам (шаги/промо)
+    async with get_session() as session:
+        contribution = await get_user_contribution_points(session, member.id)
+
     lines = [
         f"👤 @{member.username}",
         *( [f"Имя: {full_name}"] if full_name else [] ),
         f"Шаги: {member.step_count}",
-        f"Баллы: {member.balance}",
+        f"Вклад баллами: {contribution}",
     ]
     text = "\n".join(lines)
 
