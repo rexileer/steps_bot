@@ -9,13 +9,13 @@ async def main_menu_kb() -> InlineKeyboardMarkup:
 
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text='Начать прогулку', callback_data='walk')],
-            [InlineKeyboardButton(text='Ваша семья', callback_data='family')],
-            [InlineKeyboardButton(text='Баланс', callback_data='balance')],
-            [InlineKeyboardButton(text='Каталог', callback_data='catalog')],
-            [InlineKeyboardButton(text='FAQ', callback_data='faq')],
+            [InlineKeyboardButton(text='🚶 Начать прогулку', callback_data='walk')],
+            [InlineKeyboardButton(text='👪 Ваша семья', callback_data='family')],
+            [InlineKeyboardButton(text='💳 Баланс', callback_data='balance')],
+            [InlineKeyboardButton(text='🛍️ Каталог', callback_data='catalog')],
+            [InlineKeyboardButton(text='❓ FAQ', callback_data='faq')],
             [InlineKeyboardButton(
-                text='Техническая поддержка',
+                text='🛠️ Техническая поддержка',
                 url=support_url if support_url else 'https://t.me/bottecp'
             )]
         ]
@@ -26,7 +26,7 @@ async def main_menu_kb() -> InlineKeyboardMarkup:
 # Назад
 back_kb = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text='↩', callback_data='back')]
+        [InlineKeyboardButton(text='↩ Назад', callback_data='back')]
     ]
 )
 
@@ -43,54 +43,53 @@ phone_kb = ReplyKeyboardMarkup(
 # Меню с выбором вида прогулки
 walk_choice = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(
-        text='Гуляю с собакой', 
+        text='🐶 Гуляю с собакой', 
         callback_data='walk_dog'
     )],
     [InlineKeyboardButton(
-        text='Гуляю с коляской',
+        text='🍼 Гуляю с коляской',
         callback_data='walk_roller'
     )],
     [InlineKeyboardButton(
-        text='Гуляю с собакой и коляской',
+        text='🐶🍼 Гуляю с собакой и коляской',
         callback_data='walk_rolldog'
     )],
-    [InlineKeyboardButton(text='↩', callback_data='back')]
+    [InlineKeyboardButton(text='↩ Назад', callback_data='back')]
 ])
 
 
 # Завершить прогулку
 end_walk_kb = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Завершить прогулку', callback_data='end_walk')]
+    [InlineKeyboardButton(text='🏁 Завершить прогулку', callback_data='end_walk')]
 ])
 
 # Когда пользователь ещё не состоит в семье
 no_family_kb = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Создать семью', callback_data='create_family')],
-    [InlineKeyboardButton(text='↩', callback_data='back')]
+    [InlineKeyboardButton(text='👪 Создать семью', callback_data='create_family')],
+    [InlineKeyboardButton(text='↩ Назад', callback_data='back')]
 ])
 
 # Согласие на обработку персональных данных
 accept_kb = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Соглашаюсь', callback_data='accept')],
+    [InlineKeyboardButton(text='✅ Соглашаюсь', callback_data='accept')],
 ])
 
 
 balance_kb = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Потратить баллы', callback_data='catalog')],
-    [InlineKeyboardButton(text='История начислений и трат', callback_data='history')],
-    [InlineKeyboardButton(text='↩', callback_data='back')]
-    
+    [InlineKeyboardButton(text='🛍️ Потратить баллы', callback_data='catalog')],
+    [InlineKeyboardButton(text='🧾 История начислений и трат', callback_data='history')],
+    [InlineKeyboardButton(text='↩ Назад', callback_data='back')]
 ])
 
 
 walk_back_kb = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text='↩', callback_data='walk_back')]
+        [InlineKeyboardButton(text='↩ Назад', callback_data='walk_back')]
     ]
 )
 
 family_cancel_kb = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text="Отмена", callback_data="family_cancel_create")]
+        [InlineKeyboardButton(text="❌ Отмена", callback_data="family_cancel_create")]
     ]
 )

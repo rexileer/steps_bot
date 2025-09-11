@@ -1,6 +1,7 @@
 import contextlib
 import logging
 import time
+import datetime as dt
 
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
@@ -25,12 +26,14 @@ from app.steps_bot.storage.user_memory import (
     user_walk_started_at,
     user_temp_c,
     user_temp_updated_at,
+    user_daily_steps_used,
+    user_daily_steps_date,
 )
 
 router = Router()
 logger = logging.getLogger(__name__)
 
-DEFAULT_STEP_GOAL = 3000
+DEFAULT_STEP_GOAL = 3000  # дневной лимит шагов
 
 
 @router.callback_query(F.data == "walk_dog")
@@ -74,7 +77,24 @@ async def process_dog_walk_location(
     user_id = message.from_user.id
 
     user_walk_finished.pop(user_id, None)
-    await state.update_data(step_goal=DEFAULT_STEP_GOAL)
+
+    # Определяем оставшийся дневной лимит
+    today = dt.date.today().isoformat()
+    if user_daily_steps_date.get(user_id) != today:
+        user_daily_steps_date[user_id] = today
+        user_daily_steps_used[user_id] = 0
+    remaining = max(0, DEFAULT_STEP_GOAL - int(user_daily_steps_used.get(user_id, 0)))
+
+    if remaining <= 0:
+        await callback.message.delete()
+        await callback.message.answer(
+            "🏁 Дневной лимит шагов уже достигнут. Возвращайтесь завтра!",
+            reply_markup=walk_back_kb,
+        )
+        await callback.answer()
+        return
+
+    await state.update_data(step_goal=remaining)
 
     if not location.live_period:
         await message.answer("❌ Пожалуйста, отправь именно лайв-локацию через 📎")
@@ -105,7 +125,7 @@ async def process_dog_walk_location(
 
     sent = await message.answer(
         f"{temp_str}\n"
-        f"🚶 Вы прошли: 0 / {DEFAULT_STEP_GOAL} шагов\n"
+        f"🚶 Вы прошли: 0 / {remaining} шагов\n"
         f"⭐ Баллы: 0 (коэфф: ×{multiplier})",
         reply_markup=end_walk_kb,
     )

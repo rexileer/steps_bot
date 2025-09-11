@@ -20,6 +20,8 @@ from app.steps_bot.storage.user_memory import (
     user_was_over_speed,
     user_msg_id,
     user_walk_finished,
+    user_daily_steps_used,
+    user_daily_steps_date,
 )
 from app.steps_bot.services.ledger_service import accrue_steps_points
 
@@ -77,6 +79,16 @@ async def finish_walk(
 
     except Exception as e:
         logger.exception("Failed to finalize walk for %s: %s", uid, e)
+
+    # Обновляем дневной использованный лимит
+    try:
+        today = dt.date.today().isoformat()
+        if user_daily_steps_date.get(uid) != today:
+            user_daily_steps_date[uid] = today
+            user_daily_steps_used[uid] = 0
+        user_daily_steps_used[uid] = int(user_daily_steps_used.get(uid, 0)) + total_steps
+    except Exception:
+        pass
 
     summary_text = (
         "🏁 Прогулка завершена!\n\n"

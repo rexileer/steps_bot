@@ -17,7 +17,7 @@ PER_PAGE = 6
 # Меню овнера семьи
 def build_owner_kb(members: List[User], me_tg_id: int) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
-        [InlineKeyboardButton(text="Добавить участников",
+        [InlineKeyboardButton(text="➕ Добавить участников",
                               callback_data="family_invite")]
     ]
 
@@ -26,16 +26,16 @@ def build_owner_kb(members: List[User], me_tg_id: int) -> InlineKeyboardMarkup:
         row = [InlineKeyboardButton(text=label,
                                     callback_data=f"family_info:{m.id}")]
         if m.telegram_id != me_tg_id:
-            row.append(InlineKeyboardButton(text="❌ Удалить",
+            row.append(InlineKeyboardButton(text="🗑️ Удалить",
                                             callback_data=f"family_kick:{m.id}"))
         rows.append(row)
 
     rows += [
         [InlineKeyboardButton(text="✏️ Переименовать",
                               callback_data="family_rename")],
-        [InlineKeyboardButton(text="Расформировать",
+        [InlineKeyboardButton(text="🧨 Расформировать",
                               callback_data="disband")],
-        [InlineKeyboardButton(text="↩", callback_data="back")],
+        [InlineKeyboardButton(text="↩ Назад", callback_data="back")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -45,8 +45,8 @@ def invite_response_kb(inv_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[[
 
-            InlineKeyboardButton(text="Принять",  callback_data=f"family_accept:{inv_id}"),
-            InlineKeyboardButton(text="Отклонить", callback_data=f"family_decline:{inv_id}"),
+            InlineKeyboardButton(text="✅ Принять",  callback_data=f"family_accept:{inv_id}"),
+            InlineKeyboardButton(text="❌ Отклонить", callback_data=f"family_decline:{inv_id}"),
 
         ]]
     )
@@ -57,7 +57,7 @@ def build_member_kb(members: List[User],
                     me_tg_id: int,
                     owner_id: int) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
-        [InlineKeyboardButton(text="Добавить участников",
+        [InlineKeyboardButton(text="➕ Добавить участников",
                               callback_data="family_invite")]
     ]
 
@@ -69,16 +69,16 @@ def build_member_kb(members: List[User],
         row = [InlineKeyboardButton(text=label,
                                     callback_data=f"family_info:{m.id}")]
         if m.id != owner_id:
-            row.append(InlineKeyboardButton(text="❌ Удалить",
+            row.append(InlineKeyboardButton(text="🗑️ Удалить",
                                             callback_data=f"family_kick:{m.id}"))
         rows.append(row)
 
     rows += [
         [InlineKeyboardButton(text="✏️ Переименовать",
                               callback_data="family_rename")],
-        [InlineKeyboardButton(text="Выйти из семьи",
+        [InlineKeyboardButton(text="🚪 Выйти из семьи",
                               callback_data="family_leave")],
-        [InlineKeyboardButton(text="↩", callback_data="back")],
+        [InlineKeyboardButton(text="↩ Назад", callback_data="back")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -91,7 +91,7 @@ def faq_list_kb(faqs: List[FAQ], page: int = 1) -> InlineKeyboardMarkup:
     chunk = faqs[start:start + PER_PAGE]
 
     rows: list[list[InlineKeyboardButton]] = [
-        [InlineKeyboardButton(text=f"{f.question}❓", callback_data=f"faq_show:{f.slug}")]
+        [InlineKeyboardButton(text=f"❓ {f.question}", callback_data=f"faq_show:{f.slug}")]
         for f in chunk
     ]
 
@@ -103,7 +103,7 @@ def faq_list_kb(faqs: List[FAQ], page: int = 1) -> InlineKeyboardMarkup:
     if nav:
         rows.append(nav)
 
-    rows.append([InlineKeyboardButton(text="↩", callback_data="back")])
+    rows.append([InlineKeyboardButton(text="↩ Назад", callback_data="back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -116,10 +116,10 @@ faq_back_kb = InlineKeyboardMarkup(
 # Категории + промокоды
 def catalog_root_kb(categories: List[CatalogCategory]) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
-        [InlineKeyboardButton(text=c.name, callback_data=f"cat:{c.id}:1")] for c in categories
+        [InlineKeyboardButton(text=f"🗂️ {c.name}", callback_data=f"cat:{c.id}:1")] for c in categories
     ]
-    rows.append([InlineKeyboardButton(text="Промокоды", callback_data="promo_stub")])
-    rows.append([InlineKeyboardButton(text="↩", callback_data="back")])
+    rows.append([InlineKeyboardButton(text="🏷️ Промокоды", callback_data="promo_stub")])
+    rows.append([InlineKeyboardButton(text="↩ Назад", callback_data="back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -131,7 +131,7 @@ def catalog_page_kb(
     pages: int
 ) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
-        [InlineKeyboardButton(text=p.title, callback_data=f"product:{p.id}:{cat_id}:{page}")]
+        [InlineKeyboardButton(text=f"🛒 {p.title}", callback_data=f"product:{p.id}:{cat_id}:{page}")]
         for p in products
     ]
 
@@ -143,7 +143,7 @@ def catalog_page_kb(
     if nav:
         rows.append(nav)
 
-    rows.append([InlineKeyboardButton(text="↩", callback_data="catalog_root")])
+    rows.append([InlineKeyboardButton(text="↩ Назад", callback_data="catalog_root")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -152,8 +152,8 @@ def catalog_page_kb(
 def product_card_kb(product_id: int, cat_id: int, page: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Купить", callback_data=f"buy:{product_id}")],
-            [InlineKeyboardButton(text="↩", callback_data=f"cat:{cat_id}:{page}")],
+            [InlineKeyboardButton(text="🛍️ Купить", callback_data=f"buy:{product_id}")],
+            [InlineKeyboardButton(text="↩ Назад", callback_data=f"cat:{cat_id}:{page}")],
         ]
     )
 
@@ -165,12 +165,12 @@ def promo_groups_kb(groups: List[PromoGroup]) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = [
         [
             InlineKeyboardButton(
-                text=f"{g.name} • {g.discount_percent}% • {g.price_points} баллов",
+                text=f"🏷️ {g.name} • {g.discount_percent}% • {g.price_points} баллов",
                 callback_data=f"promo_group:{g.id}",
             )
         ]
         for g in groups
     ]
-    rows.append([InlineKeyboardButton(text="↩", callback_data="catalog_root")])
+    rows.append([InlineKeyboardButton(text="↩ Назад", callback_data="catalog_root")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 

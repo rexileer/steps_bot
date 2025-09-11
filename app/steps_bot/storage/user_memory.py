@@ -14,3 +14,7 @@ user_walk_form: Dict[int, WalkForm] = {}
 user_walk_started_at: Dict[int, float] = {}
 user_temp_c: dict[int, int | None] = {}
 user_temp_updated_at: dict[int, float] = {}
+
+# Дневной лимит шагов
+user_daily_steps_used: Dict[int, int] = {}
+user_daily_steps_date: Dict[int, str] = {}
