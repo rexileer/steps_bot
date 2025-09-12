@@ -66,7 +66,7 @@ class ContentAdmin(admin.ModelAdmin):
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
     list_display = (
-        "id", "telegram_id", "username", "balance", "step_count",
+        "id", "telegram_id", "username", "phone", "email", "balance", "step_count",
         "role", "is_active", "family",
     )
     list_filter = ("role", "is_active")
@@ -75,7 +75,7 @@ class UserAdmin(admin.ModelAdmin):
     add_fieldsets = (
         (None, {
             "fields": (
-                "telegram_id", "phone", "username",
+                "telegram_id", "phone", "email", "username",
                 "balance", "step_count", "family",
             ),
         }),
@@ -84,7 +84,7 @@ class UserAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {
             "fields": (
-                "telegram_id", "username", "phone",
+                "telegram_id", "username", "phone", "email",
                 "balance", "step_count", "family",
                 "role", "is_active",
             ),

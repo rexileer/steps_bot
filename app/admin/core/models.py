@@ -47,6 +47,7 @@ class User(models.Model):
     telegram_id = models.BigIntegerField(_("Telegram ID"), unique=True)
     username = models.CharField(_("username"), unique=True)
     phone = models.CharField(_("Телефон"), max_length=20, null=True, blank=True)
+    email = models.CharField(_("Email"), max_length=255, null=True, blank=True)
     balance = models.IntegerField(_("Баланс"), default=0)
     step_count = models.IntegerField(_("Шаги"), default=0)
     family = models.ForeignKey(Family, on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("Семья"), related_name="+")
@@ -111,7 +112,6 @@ class TemperatureCoefficient(models.Model):
 
     def __str__(self):
         return f"{self.get_walk_form_display()} {self.min_temp_c}–{self.max_temp_c}°C"
-
 
 
 class Content(models.Model):
