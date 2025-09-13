@@ -308,3 +308,21 @@ class PromoCode(models.Model):
 
     def __str__(self) -> str:
         return self.code
+
+
+class Broadcast(models.Model):
+    id = models.AutoField(primary_key=True)
+    text = models.TextField(_("Текст"), null=True, blank=True)
+    media_type = models.CharField(_("Тип медиа"), max_length=10, choices=MediaTypeChoices.choices, default=MediaTypeChoices.NONE)
+    telegram_file_id = models.CharField(_("Telegram file_id"), max_length=255, null=True, blank=True)
+    media_url = models.CharField(_("URL медиа"), max_length=1024, null=True, blank=True)
+    media_file = models.FileField(_("Файл медиа"), upload_to="uploads/broadcasts", null=True, blank=True)
+    scheduled_at = models.DateTimeField(_("Отправить в"), null=True, blank=True)
+    sent_at = models.DateTimeField(_("Отправлено"), null=True, blank=True)
+    status = models.CharField(_("Статус"), max_length=10, default="pending")
+
+    class Meta:
+        db_table = "broadcasts"
+        managed = False
+        verbose_name = _("Рассылка")
+        verbose_name_plural = _("Рассылки")

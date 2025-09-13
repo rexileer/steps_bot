@@ -2,6 +2,7 @@ import asyncio
 import logging
 
 from app.steps_bot.dispatcher import dp, bot
+from app.steps_bot.services.broadcast_service import run_broadcast_worker_once
 
 
 async def _main() -> None:
@@ -15,10 +16,22 @@ async def _main() -> None:
     except Exception as e:
         logging.warning("delete_webhook failed: %s", e)
 
-    await dp.start_polling(bot)
+    async def scheduler():
+        while True:
+            try:
+                await run_broadcast_worker_once()
+            except Exception as e:
+                logging.error("broadcast worker error: %s", e)
+            await asyncio.sleep(60)
+
+    await asyncio.gather(
+        dp.start_polling(bot),
+        scheduler(),
+    )
 
 
 if __name__ == "__main__":
     asyncio.run(_main())
+
 
 

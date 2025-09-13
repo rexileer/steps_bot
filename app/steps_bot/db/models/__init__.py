@@ -19,6 +19,7 @@ from app.steps_bot.db.models.catalog import (
     OrderItem,
     UserAddress,
 )
+from app.steps_bot.db.models.broadcast import Broadcast, BroadcastStatus
 
 __all__ = [
     "Base",
@@ -44,4 +45,6 @@ __all__ = [
     "LedgerEntry",
     "OwnerType",
     "OperationType",
+    "Broadcast",
+    "BroadcastStatus",
 ]

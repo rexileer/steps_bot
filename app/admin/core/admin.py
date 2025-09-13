@@ -16,7 +16,8 @@ from core.models import (
     UserAddress,
     BotSetting,
     PromoGroup,
-    PromoCode
+    PromoCode,
+    Broadcast
 )
 
 admin.site.unregister(Group)
@@ -171,3 +172,12 @@ class PromoCodeAdmin(admin.ModelAdmin):
     ordering = ("-created_at",)
     readonly_fields = ("created_at",)
     fields = ("code", "group", "max_uses", "used_count", "is_active", "created_at")
+
+
+@admin.register(Broadcast)
+class BroadcastAdmin(admin.ModelAdmin):
+    list_display = ("id", "status", "scheduled_at", "sent_at")
+    list_filter = ("status",)
+    search_fields = ("id", "text")
+    fields = ("text", "media_type", "media_file", "telegram_file_id", "media_url", "scheduled_at", "sent_at")
+    readonly_fields = ("sent_at", "status")

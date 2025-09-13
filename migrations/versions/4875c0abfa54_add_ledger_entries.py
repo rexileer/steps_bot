@@ -73,6 +73,8 @@ def upgrade() -> None:
     op.create_index("ix_ledger_family_created", "ledger_entries", ["family_id", "created_at"])
     op.create_index("ix_ledger_operation_created", "ledger_entries", ["operation", "created_at"])
 
+    # broadcasts are created in a later migration
+
 
 def downgrade() -> None:
     op.drop_index("ix_ledger_operation_created", table_name="ledger_entries")
@@ -80,3 +82,4 @@ def downgrade() -> None:
     op.drop_index("ix_ledger_user_created", table_name="ledger_entries")
     op.drop_index("ix_ledger_owner_created", table_name="ledger_entries")
     op.drop_table("ledger_entries")
+    # broadcasts cleanup is handled in its own migration
