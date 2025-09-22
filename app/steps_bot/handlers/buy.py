@@ -3,6 +3,8 @@ from html import escape
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
+from aiogram.exceptions import TelegramBadRequest
+import contextlib
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardMarkup
 from typing import Any
@@ -30,6 +32,25 @@ from app.steps_bot.states.order import OrderInput, OrderStates
 
 router = Router()
 
+
+async def _edit_text_or_caption(message: Message, text: str, reply_markup: InlineKeyboardMarkup | None = None) -> None:
+    try:
+        await message.edit_text(text, reply_markup=reply_markup)
+        return
+    except TelegramBadRequest:
+        pass
+    try:
+        await message.edit_caption(caption=text, reply_markup=reply_markup)
+        return
+    except TelegramBadRequest:
+        pass
+    try:
+        sent = await message.answer(text, reply_markup=reply_markup)
+        with contextlib.suppress(Exception):
+            await message.delete()
+        return
+    except Exception:
+        await message.answer(text, reply_markup=reply_markup)
 
 def delivery_type_kb() -> InlineKeyboardBuilder:
     """
@@ -112,7 +133,8 @@ async def on_buy_click(callback: CallbackQuery, state: FSMContext) -> None:
     return_cb = _extract_return_cb(callback.message.reply_markup)
 
     await state.set_state(OrderStates.choosing_delivery_type)
-    await callback.message.edit_text(
+    await _edit_text_or_caption(
+        callback.message,
         "Выберите тип доставки:",
         reply_markup=delivery_type_kb(return_cb).as_markup(),
     )
@@ -138,7 +160,8 @@ async def on_back_to_delivery(callback: CallbackQuery, state: FSMContext) -> Non
     if product_id is not None:
         await state.update_data(product_id=product_id)
     await state.set_state(OrderStates.choosing_delivery_type)
-    await callback.message.edit_text(
+    await _edit_text_or_caption(
+        callback.message,
         "Выберите тип доставки:",
         reply_markup=delivery_type_kb().as_markup(),
     )
@@ -155,7 +178,8 @@ async def on_delivery_type(callback: CallbackQuery, state: FSMContext) -> None:
     """
     await state.update_data(delivery_type="pvz")
     await state.set_state(OrderStates.entering_city)
-    await callback.message.edit_text(
+    await _edit_text_or_caption(
+        callback.message,
         "Укажите город получателя (например: Москва):",
         reply_markup=back_to_delivery_kb().as_markup(),
     )
@@ -266,7 +290,8 @@ async def on_pvz_choose(callback: CallbackQuery, state: FSMContext) -> None:
 
     await state.update_data(pvz_code=code, address=None)
     await state.set_state(OrderStates.entering_full_name)
-    await callback.message.edit_text(
+    await _edit_text_or_caption(
+        callback.message,
         "Укажите ФИО получателя полностью:",
         reply_markup=back_to_delivery_kb().as_markup(),
     )
@@ -369,7 +394,8 @@ async def on_cancel(callback: CallbackQuery, state: FSMContext) -> None:
     Отменяет оформление заказа и сбрасывает состояние.
     """
     await state.clear()
-    await callback.message.edit_text(
+    await _edit_text_or_caption(
+        callback.message,
         "Оформление заказа отменено.",
         reply_markup=back_to_delivery_kb().as_markup(),
     )
@@ -389,7 +415,7 @@ async def on_confirm(callback: CallbackQuery, state: FSMContext) -> None:
     try:
         product_id = int(data.get("product_id"))
     except Exception:
-        await callback.message.edit_text("Сессия устарела, начните оформление заново.")
+        await _edit_text_or_caption(callback.message, "Сессия устарела, начните оформление заново.")
         await callback.answer()
         return
 
@@ -414,20 +440,20 @@ async def on_confirm(callback: CallbackQuery, state: FSMContext) -> None:
     try:
         created, info = await submit_order_to_cdek(order=order, user_id=user_id, city_code=city_code)
     except ValueError as e:
-        await callback.message.edit_text(escape(str(e)))
+        await _edit_text_or_caption(callback.message, escape(str(e)))
         await callback.answer()
         return
     except CDEKAuthError:
-        await callback.message.edit_text("Не удалось авторизоваться в СДЭК. Проверь настройки интеграции.")
+        await _edit_text_or_caption(callback.message, "Не удалось авторизоваться в СДЭК. Проверь настройки интеграции.")
         await callback.answer()
         return
     except CDEKApiError as e:
-        await callback.message.edit_text(f"Сервис СДЭК недоступен: {escape(str(e))}")
+        await _edit_text_or_caption(callback.message, f"Сервис СДЭК недоступен: {escape(str(e))}")
         await callback.answer()
         return
 
     if not created:
-        await callback.message.edit_text(f"Не удалось оформить заказ: {escape(str(info))}")
+        await _edit_text_or_caption(callback.message, f"Не удалось оформить заказ: {escape(str(info))}")
         await callback.answer()
         return
 
@@ -450,8 +476,5 @@ async def on_confirm(callback: CallbackQuery, state: FSMContext) -> None:
     kb = InlineKeyboardBuilder()
     kb.button(text="↩", callback_data="back")
     kb.adjust(1)
-    await callback.message.edit_text(
-        text,
-        reply_markup=kb.as_markup(),
-    )
+    await _edit_text_or_caption(callback.message, text, reply_markup=kb.as_markup())
     await callback.answer()
