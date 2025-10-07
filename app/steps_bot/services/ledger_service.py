@@ -100,10 +100,14 @@ async def accrue_steps_points(
     amount: int,
     title: str = "Начисление за шаги",
     description: Optional[str] = None,
+    trigger_referral_reward: bool = True,
 ) -> LedgerEntry:
     """
     Начисляет баллы за шаги: если пользователь состоит в семье — на баланс семьи,
     иначе — на личный баланс. Пишет запись в журнал.
+    
+    Args:
+        trigger_referral_reward: Если True, начисляет процент пригласившему (используется для избежания циклических начислений)
     """
     if amount <= 0:
         raise ValueError("Сумма должна быть положительной")
@@ -159,6 +163,16 @@ async def accrue_steps_points(
         )
     session.add(entry)
     await session.flush()
+    
+    # Реферальное вознаграждение: если пользователь - чей-то реферал, начисляем процент пригласившему
+    if trigger_referral_reward and title in ("Начисление за шаги", "Начисление за прогулку"):
+        from app.steps_bot.services.referral_service import reward_inviter_for_referral_earning
+        await reward_inviter_for_referral_earning(
+            session=session,
+            user_id=user.id,
+            earned_amount=int(amount),
+        )
+    
     return entry
 
 

@@ -3,7 +3,7 @@ import asyncio
 
 from contextlib import suppress
 from aiogram import Router, F
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, CommandObject
 from aiogram.types import Message, ReplyKeyboardRemove, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
@@ -11,6 +11,8 @@ from app.steps_bot.presentation.keyboards.simple_kb import phone_kb, accept_kb, 
 from app.steps_bot.states.registration import Registration
 from app.steps_bot.services.user_service import register_user, get_user, sync_username
 from app.steps_bot.services.captions_service import render
+from app.steps_bot.services.referral_service import parse_referral_code
+from app.steps_bot.db.repo import get_session
 
 router = Router()
 
@@ -33,11 +35,20 @@ async def send_temp_warning(message: Message, text: str, delay: float = 3.0):
 
 
 @router.message(CommandStart())
-async def cmd_start(message: Message, state: FSMContext):
+async def cmd_start(message: Message, state: FSMContext, command: CommandObject):
     """Показываем главное меню сразу, если пользователь уже зарегистрирован."""
 
     await sync_username(message.from_user.id, message.from_user.username)
     user = await get_user(message.from_user.id)
+    
+    # Обработка реферального кода (только для новых пользователей при регистрации)
+    inviter_telegram_id = None
+    if command.args:
+        inviter_telegram_id = parse_referral_code(command.args)
+        if inviter_telegram_id:
+            # Сохраняем в state для использования после регистрации
+            await state.update_data(referrer_id=inviter_telegram_id)
+    
     kb = await main_menu_kb()
 
     if user and user.phone and user.email:
@@ -87,6 +98,7 @@ async def process_email(message: Message, state: FSMContext):
     name = message.from_user.first_name
     phone = data.get('phone')
     email = data.get('email')
+    referrer_id = data.get('referrer_id')
 
     await register_user(
         telegram_id=message.from_user.id,
@@ -94,6 +106,16 @@ async def process_email(message: Message, state: FSMContext):
         phone=phone,
         email=email,
     )
+    
+    # Обработка реферального кода после успешной регистрации
+    if referrer_id:
+        from app.steps_bot.services.referral_service import create_referral
+        async with get_session() as session:
+            await create_referral(
+                session=session,
+                user_telegram_id=message.from_user.id,
+                inviter_telegram_id=referrer_id,
+            )
     
     kb = await main_menu_kb()
     

@@ -20,6 +20,7 @@ from app.steps_bot.db.models.catalog import (
     UserAddress,
 )
 from app.steps_bot.db.models.broadcast import Broadcast, BroadcastStatus
+from app.steps_bot.db.models.referral import Referral
 
 __all__ = [
     "Base",
@@ -47,4 +48,5 @@ __all__ = [
     "OperationType",
     "Broadcast",
     "BroadcastStatus",
+    "Referral",
 ]

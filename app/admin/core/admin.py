@@ -17,7 +17,8 @@ from core.models import (
     BotSetting,
     PromoGroup,
     PromoCode,
-    Broadcast
+    Broadcast,
+    Referral,
 )
 
 admin.site.unregister(Group)
@@ -130,8 +131,25 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(BotSetting)
 class BotSettingAdmin(admin.ModelAdmin):
-    list_display = ("key", "value")
+    list_display = ("key", "value", "description_hint")
     search_fields = ("key",)
+    fields = ("key", "value")
+    
+    def description_hint(self, obj):
+        """Подсказка для каждой настройки"""
+        hints = {
+            "поддержка": "Ссылка на тех. поддержку",
+            "referral_reward_percent": "Процент вознаграждения за реферала (например, 10 для 10%)",
+        }
+        return hints.get(obj.key, "")
+    description_hint.short_description = "Описание"
+    
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        if obj and obj.key == "referral_reward_percent":
+            if 'value' in form.base_fields:
+                form.base_fields['value'].help_text = "Укажите процент вознаграждения (например, 10 для 10%)"
+        return form
 from django.contrib import admin
 from core.models import PromoGroup, PromoCode
 
@@ -181,3 +199,34 @@ class BroadcastAdmin(admin.ModelAdmin):
     search_fields = ("id", "text")
     fields = ("text", "media_type", "media_file", "telegram_file_id", "media_url", "scheduled_at", "sent_at")
     readonly_fields = ("sent_at", "status")
+
+
+@admin.register(Referral)
+class ReferralAdmin(admin.ModelAdmin):
+    list_display = ("id", "user_display", "inviter_display", "reward_points", "created_at")
+    list_filter = ("created_at",)
+    search_fields = ("user__telegram_id", "user__username", "inviter__telegram_id", "inviter__username")
+    readonly_fields = ("user", "inviter", "reward_points", "created_at")
+    ordering = ("-created_at",)
+
+    def user_display(self, obj):
+        """Отображает username или telegram_id пользователя"""
+        if obj.user.username:
+            return f"@{obj.user.username}"
+        return f"ID: {obj.user.telegram_id}"
+    user_display.short_description = "Пользователь"
+
+    def inviter_display(self, obj):
+        """Отображает username или telegram_id пригласившего"""
+        if obj.inviter.username:
+            return f"@{obj.inviter.username}"
+        return f"ID: {obj.inviter.telegram_id}"
+    inviter_display.short_description = "Пригласивший"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+

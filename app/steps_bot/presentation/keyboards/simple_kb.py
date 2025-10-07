@@ -13,6 +13,7 @@ async def main_menu_kb() -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text='👪 Ваша семья', callback_data='family')],
             [InlineKeyboardButton(text='💳 Баланс', callback_data='balance')],
             [InlineKeyboardButton(text='🛍️ Каталог', callback_data='catalog')],
+            [InlineKeyboardButton(text='🎁 Реферальная система', callback_data='referral_system')],
             [InlineKeyboardButton(text='❓ FAQ', callback_data='faq')],
             [InlineKeyboardButton(
                 text='🛠️ Техническая поддержка',

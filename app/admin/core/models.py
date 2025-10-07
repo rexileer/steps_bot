@@ -260,8 +260,8 @@ class BotSetting(models.Model):
     class Meta:
         db_table = "bot_settings"
         managed = False
-        verbose_name = _("Ссылка на поддержку")
-        verbose_name_plural = _("Ссылка на поддержку")
+        verbose_name = _("Настройка бота")
+        verbose_name_plural = _("Настройки бота")
 
     def __str__(self):
         return f"{self.key} = {self.value}"
@@ -326,3 +326,31 @@ class Broadcast(models.Model):
         managed = False
         verbose_name = _("Рассылка")
         verbose_name_plural = _("Рассылки")
+
+
+class Referral(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    user = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name="referred_by", 
+        verbose_name=_("Пользователь")
+    )
+    inviter = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name="my_referrals", 
+        verbose_name=_("Пригласивший")
+    )
+    reward_points = models.IntegerField(_("Начислено баллов"), default=0)
+    created_at = models.DateTimeField(_("Дата регистрации"), default=timezone.now)
+
+    class Meta:
+        db_table = "referrals"
+        managed = False
+        verbose_name = _("Реферал")
+        verbose_name_plural = _("Рефералы")
+
+    def __str__(self):
+        return f"{self.inviter.telegram_id} → {self.user.telegram_id}"
+
