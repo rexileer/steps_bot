@@ -21,6 +21,7 @@ from app.steps_bot.db.models.catalog import (
 )
 from app.steps_bot.db.models.broadcast import Broadcast, BroadcastStatus
 from app.steps_bot.db.models.referral import Referral
+from app.steps_bot.db.models.pvz import PVZ
 
 __all__ = [
     "Base",
@@ -49,4 +50,5 @@ __all__ = [
     "Broadcast",
     "BroadcastStatus",
     "Referral",
+    "PVZ",
 ]

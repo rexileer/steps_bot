@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional, Tuple
+from datetime import date as date_type
 
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.steps_bot.db.session import AsyncSessionLocal
@@ -15,7 +16,7 @@ from app.steps_bot.db.models.catalog import (
 )
 from app.steps_bot.db.models.user import User
 from app.steps_bot.db.models.family import Family
-from app.steps_bot.db.models.catalog import Order, OrderItem
+from app.steps_bot.db.models.pvz import PVZ
 
 
 @asynccontextmanager
@@ -198,3 +199,90 @@ async def delete_product(session: AsyncSession, product_id: int) -> None:
         return
     product.is_active = False
     await session.flush()
+
+
+async def replace_pvz_list(session: AsyncSession, pvz_list: List[Dict[str, str]]) -> int:
+    """
+    Удаляет все ПВЗ из БД и вставляет новый список.
+    
+    Args:
+        session: async сессия БД
+        pvz_list: список словарей {"id": "...", "full_address": "..."}
+    
+    Returns:
+        количество сохраненных ПВЗ
+    """
+    # Удаляем все старые ПВЗ
+    await session.execute(delete(PVZ))
+    
+    # Вставляем новые
+    pvz_objects = [
+        PVZ(id=item["id"], full_address=item["full_address"])
+        for item in pvz_list
+    ]
+    session.add_all(pvz_objects)
+    await session.flush()
+    
+    return len(pvz_objects)
+
+
+async def get_pvz_by_city(session: AsyncSession, city: str) -> List[PVZ]:
+    """
+    Возвращает список ПВЗ, где full_address содержит город.
+    
+    Args:
+        session: async сессия БД
+        city: название города для фильтрации
+    
+    Returns:
+        список объектов PVZ
+    """
+    query = select(PVZ).where(PVZ.full_address.ilike(f"%{city}%")).order_by(PVZ.full_address)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
+async def get_orders_between(
+    session: AsyncSession,
+    date_from: date_type,
+    date_to: date_type,
+) -> List[Dict[str, Any]]:
+    """
+    Возвращает список заказов за диапазон дат с необходимыми полями.
+    
+    Args:
+        session: async сессия БД
+        date_from: начальная дата (включительно)
+        date_to: конечная дата (включительно)
+    
+    Returns:
+        список словарей с полями для API
+    """
+    query = (
+        select(User.first_name, User.last_name, User.phone, User.email, Order.id, Order.pvz_id, Order.created_at, Product.id.label("product_code"))
+        .join(Order, Order.user_id == User.id)
+        .join(OrderItem, OrderItem.order_id == Order.id)
+        .join(Product, Product.id == OrderItem.product_id)
+        .where(Order.created_at >= date_from)
+        .where(Order.created_at <= date_to)
+        .order_by(Order.created_at.desc())
+    )
+    
+    result = await session.execute(query)
+    rows = result.all()
+    
+    orders = []
+    for row in rows:
+        first_name, last_name, phone, email, order_id, pvz_id, created_at, product_code = row
+        orders.append({
+            "first_name": first_name or "",
+            "last_name": last_name or "",
+            "phone": phone or "",
+            "email": email or "",
+            "pvz_id": pvz_id or "",
+            "order_id": str(order_id),
+            "created_at": created_at.isoformat() if created_at else "",
+            "product_code": str(product_code) if product_code else "",
+        })
+    
+    return orders

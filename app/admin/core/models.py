@@ -205,8 +205,7 @@ class Order(models.Model):
     user = models.ForeignKey(User, on_delete=models.PROTECT, verbose_name=_("Пользователь"))
     status = models.CharField(_("Статус"), max_length=10, choices=OrderStatusChoices.choices, default=OrderStatusChoices.NEW)
     total_price = models.IntegerField(_("Баллы"))
-    cdek_uuid = models.CharField(_("UUID СДЭК"), max_length=64, blank=True, null=True)
-    track_code = models.CharField(_("Трек"), max_length=32, blank=True, null=True)
+    pvz_id = models.CharField(_("ID ПВЗ"), max_length=64, blank=True, null=True)
     created_at = models.DateTimeField(_("Создан"), auto_now_add=True)
 
     class Meta:
@@ -353,4 +352,22 @@ class Referral(models.Model):
 
     def __str__(self):
         return f"{self.inviter.telegram_id} → {self.user.telegram_id}"
+
+
+class PVZ(models.Model):
+    """
+    Пункт выдачи (ПВЗ) для доставки заказов.
+    """
+    id = models.CharField(_("ID"), max_length=64, primary_key=True)
+    full_address = models.CharField(_("Полный адрес"), max_length=255)
+    created_at = models.DateTimeField(_("Создан"), auto_now_add=True)
+
+    class Meta:
+        db_table = "pvz"
+        managed = False
+        verbose_name = _("Пункт выдачи")
+        verbose_name_plural = _("Пункты выдачи")
+
+    def __str__(self):
+        return f"{self.full_address} ({self.id})"
 

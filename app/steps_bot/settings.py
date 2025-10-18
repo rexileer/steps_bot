@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     DEFAULT_PACKAGE_H: int = 10
 
     MEDIA_ROOT: str = "/app/media"
+    
+    API_KEY: str
 
     model_config = SettingsConfigDict(env_file=".env")
 

@@ -19,6 +19,7 @@ from core.models import (
     PromoCode,
     Broadcast,
     Referral,
+    PVZ,
 )
 
 admin.site.unregister(Group)
@@ -123,9 +124,9 @@ class OrderItemInline(admin.TabularInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ("id", "user", "status", "total_price", "created_at", "track_code")
+    list_display = ("id", "user", "status", "total_price", "pvz_id", "created_at")
     list_filter = ("status",)
-    search_fields = ("id", "track_code", "user__telegram_id")
+    search_fields = ("id", "pvz_id", "user__telegram_id")
     inlines = (OrderItemInline,)
 
 
@@ -228,5 +229,18 @@ class ReferralAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(PVZ)
+class PVZAdmin(admin.ModelAdmin):
+    """
+    Управление пунктами выдачи (ПВЗ).
+    """
+    list_display = ("id", "full_address", "created_at")
+    search_fields = ("id", "full_address")
+    list_filter = ("created_at",)
+    ordering = ("-created_at",)
+    readonly_fields = ("created_at",)
+    fields = ("id", "full_address", "created_at")
 
 

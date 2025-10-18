@@ -79,8 +79,7 @@ class Order(Base):
         nullable=False,
     )
     total_price: Mapped[int] = mapped_column(Integer, nullable=False)
-    cdek_uuid: Mapped[Optional[str]] = mapped_column(String(64))
-    track_code: Mapped[Optional[str]] = mapped_column(String(32))
+    pvz_id: Mapped[Optional[str]] = mapped_column(ForeignKey("pvz.id"), nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
