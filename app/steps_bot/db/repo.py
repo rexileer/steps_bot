@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import date as date_type
+from datetime import datetime, timezone, timedelta
 
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -168,6 +169,8 @@ async def create_order_with_item(
     user_id: int,
     product,
     pvz_id: str,
+    recipient_first_name: str = "",
+    recipient_last_name: str = "",
 ) -> Order:
     """
     Создаёт заказ для реального users.id, найденного по id или telegram_id.
@@ -179,6 +182,8 @@ async def create_order_with_item(
         user_id=user.id,
         total_price=int(product.price),
         pvz_id=pvz_id,
+        recipient_first_name=recipient_first_name,
+        recipient_last_name=recipient_last_name,
     )
     session.add(order)
     await session.flush()
@@ -242,6 +247,31 @@ async def get_pvz_by_city(session: AsyncSession, city: str) -> List[PVZ]:
     return result.scalars().all()
 
 
+def _parse_full_name(full_name: str) -> tuple[str, str]:
+    """
+    Парсит полное имя в формате: Фамилия Имя Отчество
+    Возвращает: (first_name=Имя, last_name=Фамилия)
+    Отчество игнорируется.
+    """
+    if not full_name:
+        return "", ""
+    
+    parts = full_name.strip().split()
+    
+    if len(parts) == 0:
+        return "", ""
+    elif len(parts) == 1:
+        # Только фамилия
+        return "", parts[0]
+    elif len(parts) >= 2:
+        # Фамилия, Имя, (Отчество)
+        last_name = parts[0]
+        first_name = parts[1]
+        return first_name, last_name
+    
+    return "", ""
+
+
 async def get_orders_between(
     session: AsyncSession,
     date_from: date_type,
@@ -249,17 +279,18 @@ async def get_orders_between(
 ) -> List[Dict[str, Any]]:
     """
     Возвращает список заказов за диапазон дат с необходимыми полями.
-    
-    Args:
-        session: async сессия БД
-        date_from: начальная дата (включительно)
-        date_to: конечная дата (включительно)
-    
-    Returns:
-        список словарей с полями для API
     """
     query = (
-        select(User.first_name, User.last_name, User.phone, User.email, Order.id, Order.pvz_id, Order.created_at, Product.id.label("product_code"))
+        select(
+            Order.recipient_first_name,
+            Order.recipient_last_name,
+            User.phone,
+            User.email,
+            Order.id,
+            Order.pvz_id,
+            Order.created_at,
+            Product.id.label("product_code")
+        )
         .join(Order, Order.user_id == User.id)
         .join(OrderItem, OrderItem.order_id == Order.id)
         .join(Product, Product.id == OrderItem.product_id)
@@ -271,9 +302,22 @@ async def get_orders_between(
     result = await session.execute(query)
     rows = result.all()
     
+    # MSK timezone (UTC+3)
+    msk_tz = timezone(timedelta(hours=3))
+    
     orders = []
     for row in rows:
         first_name, last_name, phone, email, order_id, pvz_id, created_at, product_code = row
+        
+        # Форматируем время в MSK без микросекунд
+        if created_at:
+            # Конвертируем UTC в MSK
+            msk_time = created_at.astimezone(msk_tz)
+            # Форматируем без микросекунд и часового пояса
+            created_at_str = msk_time.strftime("%Y-%m-%dT%H:%M:%S")
+        else:
+            created_at_str = ""
+        
         orders.append({
             "first_name": first_name or "",
             "last_name": last_name or "",
@@ -281,7 +325,7 @@ async def get_orders_between(
             "email": email or "",
             "pvz_id": pvz_id or "",
             "order_id": str(order_id),
-            "created_at": created_at.isoformat() if created_at else "",
+            "created_at": created_at_str,
             "product_code": str(product_code) if product_code else "",
         })
     

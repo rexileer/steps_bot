@@ -44,6 +44,7 @@ async def finalize_successful_order(
     user_id: int,
     product_id: int,
     pvz_id: str,
+    full_name: str = "",
 ) -> Dict[str, Any]:
     """
     Создаёт заказ, списывает баллы с семьи пропорционально и пишет проводки.
@@ -52,6 +53,7 @@ async def finalize_successful_order(
         user_id: ID пользователя (telegram или БД)
         product_id: ID товара
         pvz_id: ID ПВЗ для доставки
+        full_name: полное имя получателя (для сохранения в профиль)
     """
     async with repo.get_session() as session:
         result = await repo.get_product_with_category(session, product_id)
@@ -60,6 +62,16 @@ async def finalize_successful_order(
 
         product, category = result
         user, family, _ = await repo.get_user_with_family(session, user_id)
+        
+        # Парсим ФИО для сохранения в заказ
+        first_name, last_name = "", ""
+        if full_name:
+            parts = full_name.strip().split()
+            if len(parts) >= 2:
+                last_name = parts[0]  # Фамилия
+                first_name = parts[1]  # Имя
+            elif len(parts) == 1:
+                last_name = parts[0]  # Только фамилия
         
         # Проверяем доступность по семье или по личному балансу
         if family:
@@ -76,6 +88,8 @@ async def finalize_successful_order(
             user_id=user.id,
             product=product,
             pvz_id=pvz_id,
+            recipient_first_name=first_name,
+            recipient_last_name=last_name,
         )
 
         if family:

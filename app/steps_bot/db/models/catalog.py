@@ -80,6 +80,8 @@ class Order(Base):
     )
     total_price: Mapped[int] = mapped_column(Integer, nullable=False)
     pvz_id: Mapped[Optional[str]] = mapped_column(ForeignKey("pvz.id"), nullable=True)
+    recipient_first_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    recipient_last_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

@@ -335,6 +335,7 @@ async def on_confirm(callback: CallbackQuery, state: FSMContext) -> None:
             user_id=user_id,
             product_id=product_id,
             pvz_id=pvz_id,
+            full_name=data.get("full_name", ""),
         )
     except ValueError as e:
         await callback.message.edit_text(escape(str(e)))
