@@ -75,7 +75,7 @@ async def finalize_successful_order(
             session=session,
             user_id=user.id,
             product=product,
-            cdek_uuid=pvz_id,  # Используем pvz_id в место cdek_uuid
+            pvz_id=pvz_id,
         )
 
         if family:

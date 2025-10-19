@@ -31,3 +31,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_pvz_full_address", table_name="pvz")
     op.drop_table("pvz")
+

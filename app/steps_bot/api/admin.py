@@ -12,7 +12,7 @@ import logging
 from datetime import datetime, date as date_type
 from typing import List, Dict, Any, Optional
 
-from fastapi import FastAPI, Header, HTTPException, status
+from fastapi import FastAPI, Header, HTTPException, status, Depends
 from pydantic import BaseModel, Field
 
 from app.steps_bot.settings import config
@@ -49,35 +49,35 @@ class OrderResponse(BaseModel):
     product_code: str
 
 
-def validate_api_key(api_key: Optional[str] = Header(None)) -> None:
+def validate_api_key(
+    api_key_underscore: Optional[str] = Header(None, alias="API_Key"),
+    api_key_hyphen: Optional[str] = Header(None, alias="API-Key"),
+) -> bool:
     """
-    Validate API_Key header against configured API_KEY.
-    
-    Args:
-        api_key: API_Key from request header
-    
-    Raises:
-        HTTPException: if API_Key is invalid or missing
+    Validate API key from either header: API_Key or API-Key.
+    Returns True if valid, otherwise raises HTTPException.
     """
-    if not api_key:
-        logger.warning("Request rejected: missing API_Key header")
+    provided = api_key_underscore or api_key_hyphen
+    if not provided:
+        logger.warning("Request rejected: missing API key header (API_Key or API-Key)")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="API_Key header required",
         )
-    
-    if api_key != config.API_KEY:
-        logger.warning(f"Request rejected: invalid API_Key (provided: {api_key[:4]}...)")
+    if provided != config.API_KEY:
+        masked = (provided[:4] + "***") if isinstance(provided, str) else "***"
+        logger.warning(f"Request rejected: invalid API key ({masked})")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid API_Key",
         )
+    return True
 
 
 @app.post("/pvz", response_model=PVZResponse)
 async def replace_pvz(
     items: List[PVZItem],
-    api_key: Optional[str] = Header(None),
+    _: bool = Depends(validate_api_key),
 ) -> PVZResponse:
     """
     Replace entire PVZ list in database.
@@ -93,9 +93,6 @@ async def replace_pvz(
         - count: number of saved PVZ items
         - message: descriptive message
     """
-    # Validate API key
-    validate_api_key(api_key)
-    
     # Validate input
     if not items:
         raise HTTPException(
@@ -126,7 +123,7 @@ async def replace_pvz(
 @app.get("/order/{date_range}", response_model=List[OrderResponse])
 async def get_orders_by_date_range(
     date_range: str,
-    api_key: Optional[str] = Header(None),
+    _: bool = Depends(validate_api_key),
 ) -> List[OrderResponse]:
     """
     Get orders for specified date range.
@@ -147,9 +144,6 @@ async def get_orders_by_date_range(
         - created_at (ISO 8601 datetime)
         - product_code (string)
     """
-    # Validate API key
-    validate_api_key(api_key)
-    
     # Parse date range
     try:
         parts = date_range.split("-")
@@ -187,3 +181,4 @@ async def get_orders_by_date_range(
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+

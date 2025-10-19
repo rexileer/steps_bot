@@ -167,7 +167,7 @@ async def create_order_with_item(
     session: AsyncSession,
     user_id: int,
     product,
-    cdek_uuid: str,
+    pvz_id: str,
 ) -> Order:
     """
     Создаёт заказ для реального users.id, найденного по id или telegram_id.
@@ -178,7 +178,7 @@ async def create_order_with_item(
     order = Order(
         user_id=user.id,
         total_price=int(product.price),
-        cdek_uuid=cdek_uuid,
+        pvz_id=pvz_id,
     )
     session.add(order)
     await session.flush()

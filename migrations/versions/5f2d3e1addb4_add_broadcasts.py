@@ -14,7 +14,7 @@ from sqlalchemy.dialects import postgresql as pg
 
 
 revision = "5f2d3e1addb4"
-down_revision = "add_media_file_to_contents"
+down_revision = "133cbbb92e00"
 branch_labels = None
 depends_on = None
 

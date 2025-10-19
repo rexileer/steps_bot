@@ -122,7 +122,8 @@ async def on_buy_click(callback: CallbackQuery, state: FSMContext) -> None:
     return_cb = _extract_return_cb(callback.message.reply_markup)
 
     await state.set_state(OrderStates.choosing_delivery_type)
-    await callback.message.edit_text(
+    await callback.message.delete()
+    await callback.message.answer(
         "Выберите тип доставки:",
         reply_markup=delivery_type_kb(return_cb).as_markup(),
     )

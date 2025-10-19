@@ -6,7 +6,7 @@ import sqlalchemy as sa
 from alembic import op
 
 
-revision = "add_media_file_to_contents"
+revision = "133cbbb92e00"
 down_revision = "4875c0abfa54"
 branch_labels = None
 depends_on = None
