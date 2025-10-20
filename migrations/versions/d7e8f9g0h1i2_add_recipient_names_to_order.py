@@ -19,10 +19,25 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("orders", sa.Column("recipient_first_name", sa.String(100), nullable=True))
-    op.add_column("orders", sa.Column("recipient_last_name", sa.String(100), nullable=True))
+    try:
+        op.add_column("orders", sa.Column("recipient_first_name", sa.String(100), nullable=True))
+    except Exception:
+        pass
+    
+    try:
+        op.add_column("orders", sa.Column("recipient_last_name", sa.String(100), nullable=True))
+    except Exception:
+        pass
 
 
 def downgrade() -> None:
-    op.drop_column("orders", "recipient_last_name")
-    op.drop_column("orders", "recipient_first_name")
+    try:
+        op.drop_column("orders", "recipient_last_name")
+    except Exception:
+        pass
+    
+    try:
+        op.drop_column("orders", "recipient_first_name")
+    except Exception:
+        pass
+

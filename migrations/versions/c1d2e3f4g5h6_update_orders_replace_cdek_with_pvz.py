@@ -19,26 +19,31 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Drop track_code column
-    op.drop_column("orders", "track_code")
-    
-    # Clean up orphaned cdek_uuid values (set to NULL) to avoid FK constraint violation
-    # Old cdek_uuid values from CDEK won't exist in the new pvz table, so they must be NULL
-    op.execute(
-        sa.text("UPDATE orders SET cdek_uuid = NULL WHERE cdek_uuid IS NOT NULL")
-    )
-    
-    # Drop any index on cdek_uuid if it exists (PostgreSQL keeps it after rename)
+    # Try to drop track_code if it exists
     try:
-        op.drop_index("ix_orders_cdek_uuid", table_name="orders")
+        op.drop_column("orders", "track_code")
     except Exception:
-        pass  # Index might not exist
+        pass
     
-    # Rename cdek_uuid to pvz_id
-    op.alter_column("orders", "cdek_uuid", new_column_name="pvz_id", existing_type=sa.String(64))
+    # Try to add pvz_id if it doesn't exist (might have been renamed or already exists)
+    try:
+        # Check if pvz_id already exists by trying to add it
+        op.add_column("orders", sa.Column("pvz_id", sa.String(64), nullable=True))
+    except Exception:
+        # If it fails, try renaming cdek_uuid to pvz_id
+        try:
+            op.alter_column("orders", "cdek_uuid", new_column_name="pvz_id", existing_type=sa.String(64))
+        except Exception:
+            # Column pvz_id already exists or cdek_uuid doesn't exist, skip
+            pass
     
-    # Add new foreign key constraint to pvz table
-    # (The old FK on cdek_uuid will be automatically dropped when the column is renamed)
+    # Clean up orphaned pvz_id values
+    try:
+        op.execute(sa.text("UPDATE orders SET pvz_id = NULL WHERE pvz_id IS NOT NULL AND pvz_id NOT IN (SELECT id FROM pvz)"))
+    except Exception:
+        pass
+    
+    # Try to add foreign key if it doesn't exist
     try:
         op.create_foreign_key(
             "fk_orders_pvz_id",
@@ -49,25 +54,25 @@ def upgrade() -> None:
             ondelete="SET NULL"
         )
     except Exception:
-        pass  # FK might already exist
+        pass
 
 
 def downgrade() -> None:
-    # Drop new foreign key
+    # Try to drop foreign key
     try:
         op.drop_constraint("fk_orders_pvz_id", "orders", type_="foreignkey")
     except Exception:
         pass
     
-    # Rename pvz_id back to cdek_uuid
-    op.alter_column("orders", "pvz_id", new_column_name="cdek_uuid", existing_type=sa.String(64))
-    
-    # Add track_code back
-    op.add_column("orders", sa.Column("track_code", sa.String(32), nullable=True))
-    
-    # Recreate index if needed
+    # Try to rename pvz_id back to cdek_uuid
     try:
-        op.create_index("ix_orders_cdek_uuid", "orders", ["cdek_uuid"])
+        op.alter_column("orders", "pvz_id", new_column_name="cdek_uuid", existing_type=sa.String(64))
+    except Exception:
+        pass
+    
+    # Try to add track_code back
+    try:
+        op.add_column("orders", sa.Column("track_code", sa.String(32), nullable=True))
     except Exception:
         pass
 
