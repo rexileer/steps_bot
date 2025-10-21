@@ -189,6 +189,7 @@ class Product(models.Model):
     telegram_file_id = models.CharField(_("Telegram file_id"), max_length=255, blank=True, null=True)
     media_url = models.CharField(_("URL медиа"), max_length=1024, blank=True, null=True)
     is_active = models.BooleanField(_("Активен"), default=True)
+    product_code = models.CharField(_("Код товара"), max_length=64, blank=True, null=True)
 
     class Meta:
         db_table = "products"

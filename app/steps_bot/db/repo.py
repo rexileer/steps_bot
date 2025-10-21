@@ -289,7 +289,7 @@ async def get_orders_between(
             Order.id,
             Order.pvz_id,
             Order.created_at,
-            Product.id.label("product_code")
+            Product.product_code
         )
         .join(Order, Order.user_id == User.id)
         .join(OrderItem, OrderItem.order_id == Order.id)

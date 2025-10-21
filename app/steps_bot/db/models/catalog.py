@@ -55,6 +55,7 @@ class Product(Base):
     media_url: Mapped[Optional[str]] = mapped_column(String(1024))
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    product_code: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
 
 class OrderStatus(str, enum.Enum):
