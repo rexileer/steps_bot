@@ -48,7 +48,7 @@ def delivery_type_kb(return_cb: str | None = None) -> InlineKeyboardBuilder:
     Клавиатура выбора типа доставки: только ПВЗ + назад к товарам.
     """
     kb = InlineKeyboardBuilder()
-    kb.button(text="ПВЗ", callback_data="order:delivery:pvz")
+    kb.button(text="Яндекс.Доставка", callback_data="order:delivery:pvz")
     kb.button(text="↩", callback_data=return_cb or "catalog_root")
     kb.adjust(1, 1)
     return kb
