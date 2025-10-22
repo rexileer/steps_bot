@@ -14,6 +14,8 @@ from typing import List, Dict, Any, Optional
 
 from fastapi import FastAPI, Header, HTTPException, status, Depends
 from pydantic import BaseModel, Field
+from fastapi.requests import Request
+import json
 
 from app.steps_bot.settings import config
 from app.steps_bot.db.repo import get_session, replace_pvz_list, get_pvz_by_city, get_orders_between
@@ -76,7 +78,7 @@ def validate_api_key(
 
 @app.post("/pvz", response_model=PVZResponse)
 async def replace_pvz(
-    items: List[PVZItem],
+    request: Request,
     _: bool = Depends(validate_api_key),
 ) -> PVZResponse:
     """
@@ -93,15 +95,45 @@ async def replace_pvz(
         - count: number of saved PVZ items
         - message: descriptive message
     """
-    # Validate input
-    if not items:
+    # Parse request body
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid JSON in request body",
+        )
+    
+    # Validate it's a list
+    if not isinstance(body, list):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Request body must be a JSON array",
+        )
+    
+    if not body:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="PVZ list cannot be empty",
         )
     
-    # Convert to dict format for repository
-    pvz_list = [{"id": item.id, "full_address": item.full_address} for item in items]
+    # Validate each item
+    pvz_list = []
+    for idx, item in enumerate(body):
+        if not isinstance(item, dict):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Item {idx} is not a valid object",
+            )
+        if "id" not in item or "full_address" not in item:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Item {idx} missing required fields: id, full_address",
+            )
+        pvz_list.append({
+            "id": str(item["id"]).strip(),
+            "full_address": str(item["full_address"]).strip(),
+        })
     
     try:
         async with get_session() as session:
