@@ -168,14 +168,14 @@ async def on_delivery_type(callback: CallbackQuery, state: FSMContext) -> None:
 @router.message(OrderStates.entering_city, F.text.len() > 0)
 async def on_city_entered(message: Message, state: FSMContext) -> None:
     """
-    Обрабатывает ввод города, предлагает ПВЗ из локального списка.
+    Обрабатывает ввод города.
+    Если ПВЗ <= 10, показывает их сразу.
+    Если ПВЗ > 10, просит уточнить улицу.
     """
     city = message.text.strip()
     if not validate_city(city):
         await message.answer("Город указан некорректно. Повторите ввод.", reply_markup=back_to_delivery_kb().as_markup())
         return
-
-    await state.update_data(city=city)
 
     # Получаем ПВЗ из локальной БД
     try:
@@ -191,6 +191,60 @@ async def on_city_entered(message: Message, state: FSMContext) -> None:
     if not pvz_list:
         await message.answer(
             "К сожалению нет доступных ПВЗ по указанному адресу.",
+            reply_markup=back_to_delivery_kb().as_markup()
+        )
+        return
+
+    await state.update_data(city=city)
+
+    # Если ПВЗ 10 или меньше - показываем сразу
+    if len(pvz_list) <= 10:
+        kb = pvz_list_kb(pvz_list)
+        kb.button(text="↩", callback_data="order:back")
+        await message.answer(
+            "Выберите пункт выдачи:",
+            reply_markup=kb.as_markup(),
+        )
+        await state.set_state(OrderStates.entering_pvz_or_address)
+    else:
+        # Если больше 10 - просим уточнить улицу
+        await message.answer(
+            "ПВЗ в этом городе много. Пожалуйста, уточните улицу или часть адреса:"
+        )
+        await state.set_state(OrderStates.entering_street)
+
+
+@router.message(OrderStates.entering_street, F.text.len() > 0)
+async def on_street_entered(message: Message, state: FSMContext) -> None:
+    """
+    Обрабатывает ввод улицы и фильтрует ПВЗ.
+    """
+    street = message.text.strip()
+    if not street or len(street) < 2:
+        await message.answer("Пожалуйста, укажите улицу подробнее (минимум 2 символа).")
+        return
+
+    data = await state.get_data()
+    city = data.get("city")
+
+    if not city:
+        await message.answer("Сессия устарела, начните заново.", reply_markup=back_to_delivery_kb().as_markup())
+        return
+
+    # Получаем ПВЗ, отфильтрованные по городу и улице
+    try:
+        async with repo.get_session() as session:
+            pvz_list = await repo.get_pvz_by_city_and_street(session, city, street)
+    except Exception as e:
+        await message.answer(
+            f"Ошибка при получении списка ПВЗ: {escape(str(e))}",
+            reply_markup=back_to_delivery_kb().as_markup()
+        )
+        return
+
+    if not pvz_list:
+        await message.answer(
+            "ПВЗ не найдены по этому адресу. Попробуйте другой адрес или начните заново.",
             reply_markup=back_to_delivery_kb().as_markup()
         )
         return
@@ -217,11 +271,11 @@ async def on_pvz_choose(callback: CallbackQuery, state: FSMContext) -> None:
         return
 
     await state.update_data(pvz_id=pvz_id, address=None)
-    await state.set_state(OrderStates.entering_full_name)
-    await callback.message.edit_text(
-        "Укажите ФИО получателя полностью:",
-        reply_markup=back_to_delivery_kb().as_markup(),
+    await callback.message.delete()
+    await callback.message.answer(
+        "Пожалуйста, введите ваши ФИО (Фамилия Имя Отчество):"
     )
+    await state.set_state(OrderStates.entering_full_name)
     await callback.answer()
 
 

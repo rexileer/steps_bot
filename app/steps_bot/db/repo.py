@@ -247,6 +247,30 @@ async def get_pvz_by_city(session: AsyncSession, city: str) -> List[PVZ]:
     return result.scalars().all()
 
 
+async def get_pvz_by_city_and_street(session: AsyncSession, city: str, street: str) -> List[PVZ]:
+    """
+    Возвращает список ПВЗ, отфильтрованный по городу и улице.
+    
+    Args:
+        session: async сессия БД
+        city: название города
+        street: название улицы или часть адреса
+    
+    Returns:
+        список объектов PVZ, отсортированные по адресу
+    """
+    query = (
+        select(PVZ)
+        .where(
+            PVZ.full_address.ilike(f"%{city}%"),
+            PVZ.full_address.ilike(f"%{street}%")
+        )
+        .order_by(PVZ.full_address)
+    )
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
 def _parse_full_name(full_name: str) -> tuple[str, str]:
     """
     Парсит полное имя в формате: Фамилия Имя Отчество
