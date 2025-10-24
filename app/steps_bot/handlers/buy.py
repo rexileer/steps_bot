@@ -282,34 +282,32 @@ async def on_pvz_choose(callback: CallbackQuery, state: FSMContext) -> None:
 @router.message(OrderStates.entering_full_name, F.text.len() > 0)
 async def on_full_name(message: Message, state: FSMContext) -> None:
     """
-    Принимает ФИО и запрашивает телефон.
+    Принимает ФИО и переходит к подтверждению (телефон берется из профиля пользователя).
     """
     full_name = message.text.strip()
     if not validate_full_name(full_name):
         await message.answer("ФИО некорректно. Укажите полностью, минимум 3 символа.", reply_markup=back_to_delivery_kb().as_markup())
         return
-    await state.update_data(full_name=full_name)
-    await state.set_state(OrderStates.entering_phone)
-    await message.answer(
-        "Укажите телефон в международном формате (например: +79991234567):",
-        reply_markup=back_to_delivery_kb().as_markup(),
-    )
-
-
-@router.message(OrderStates.entering_phone, F.text.len() > 0)
-async def on_phone(message: Message, state: FSMContext) -> None:
-    """
-    Принимает телефон, нормализует и предлагает подтверждение данных.
-    """
-    phone = normalize_phone(message.text)
-    if not validate_phone(phone):
+    
+    # Получаем телефон пользователя из профиля
+    try:
+        async with repo.get_session() as session:
+            user = await repo._resolve_user(session, message.from_user.id)
+            if not user or not user.phone:
+                await message.answer(
+                    "Ошибка: телефон не найден в профиле. Пожалуйста, обновите профиль.",
+                    reply_markup=back_to_delivery_kb().as_markup()
+                )
+                return
+            phone = user.phone
+    except Exception as e:
         await message.answer(
-            "Телефон некорректен. Формат: +79991234567.",
-            reply_markup=back_to_delivery_kb().as_markup(),
+            f"Ошибка при получении данных: {escape(str(e))}",
+            reply_markup=back_to_delivery_kb().as_markup()
         )
         return
 
-    await state.update_data(phone=phone)
+    await state.update_data(full_name=full_name, phone=phone)
     data = await state.get_data()
 
     product_id = _extract_product_id(data)
@@ -330,7 +328,7 @@ async def on_phone(message: Message, state: FSMContext) -> None:
         f"Стоимость: {escape(str(product['price']))} баллов",
         f"Город: {escape(str(data.get('city') or ''))}",
         f"Получатель: {escape(str(data.get('full_name') or ''))}",
-        f"Телефон: {escape(str(data.get('phone') or ''))}",
+        f"Телефон: {escape(str(phone or ''))}",
     ]
 
     await state.set_state(OrderStates.confirming)
@@ -338,6 +336,16 @@ async def on_phone(message: Message, state: FSMContext) -> None:
         "Проверьте данные:\n\n" + "\n".join(summary),
         reply_markup=confirm_kb().as_markup(),
     )
+
+
+@router.message(OrderStates.entering_phone, F.text.len() > 0)
+async def on_phone(message: Message, state: FSMContext) -> None:
+    """
+    DEPRECATED: Этот обработчик больше не используется.
+    Телефон теперь берется автоматически из профиля пользователя.
+    """
+    await message.answer("Этот этап пропущен. Телефон берется из вашего профиля.")
+    # Это нужно для безопасности, чтобы не было ошибки 404 если кто-то вдруг попадет в это состояние
 
 
 @router.callback_query(F.data == "order:cancel")

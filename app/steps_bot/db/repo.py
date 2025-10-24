@@ -303,7 +303,14 @@ async def get_orders_between(
 ) -> List[Dict[str, Any]]:
     """
     Возвращает список заказов за диапазон дат с необходимыми полями.
+    Включает все заказы от начала date_from до конца дня date_to.
     """
+    from datetime import datetime, time
+    
+    # Конвертируем даты в datetime с временем
+    start_datetime = datetime.combine(date_from, time.min)
+    end_datetime = datetime.combine(date_to, time.max)
+    
     query = (
         select(
             Order.recipient_first_name,
@@ -318,8 +325,8 @@ async def get_orders_between(
         .join(Order, Order.user_id == User.id)
         .join(OrderItem, OrderItem.order_id == Order.id)
         .join(Product, Product.id == OrderItem.product_id)
-        .where(Order.created_at >= date_from)
-        .where(Order.created_at <= date_to)
+        .where(Order.created_at >= start_datetime)
+        .where(Order.created_at <= end_datetime)
         .order_by(Order.created_at.desc())
     )
     
