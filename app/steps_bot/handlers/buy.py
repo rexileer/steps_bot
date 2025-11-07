@@ -209,7 +209,7 @@ async def on_city_entered(message: Message, state: FSMContext) -> None:
     else:
         # Если больше 10 - просим уточнить улицу
         await message.answer(
-            "Укажите улицу получателя (например: Ленина):"
+            "Укажите улицу удобного ПВЗ Яндекс Маркета для получателя (например: Ленина):"
         )
         await state.set_state(OrderStates.entering_street)
 
